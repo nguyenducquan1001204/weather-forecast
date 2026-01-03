@@ -14,53 +14,115 @@ if sys.platform == 'win32':
 
 app = Flask(__name__)
 
+models_final = {}
+feature_cols_dict_final = {}
+models_improved = {}
+feature_cols_dict_improved = {}
 models = {}
 feature_cols_dict = {}
 target_vars = ['Temp_numeric', 'Rain_numeric', 'Cloud_numeric', 
                'Pressure_numeric', 'Wind_numeric', 'Gust_numeric']
 
 def load_models():
-    """Load models từ file .pkl"""
+    """Load cả 2 model: final (để dự báo) và improved (để test/validation)"""
+    global models_final, feature_cols_dict_final
+    global models_improved, feature_cols_dict_improved
     global models, feature_cols_dict
     
-    # Ưu tiên load final model (train với toàn bộ dữ liệu), sau đó improved, cuối cùng là model cũ
-    model_file = 'weather_models_final.pkl'
-    if not os.path.exists(model_file):
-        model_file = 'weather_models_improved.pkl'
-        print(f"⚠️  Không tìm thấy weather_models_final.pkl, dùng {model_file}")
-        if not os.path.exists(model_file):
-            model_file = 'weather_models.pkl'
-            print(f"⚠️  Không tìm thấy weather_models_improved.pkl, dùng {model_file}")
+    loaded_final = False
+    loaded_improved = False
     
-    if not os.path.exists(model_file):
-        print(f"❌ File {model_file} không tồn tại!")
-        print("   Vui lòng chạy: python train_improved_models.py trước")
-        return False
-    
-    try:
-        print(f"Loading models from {model_file}...")
-        with open(model_file, 'rb') as f:
-            models_data = pickle.load(f)
-        
-        models = models_data['models']
-        feature_cols_dict = models_data['feature_cols']
-        
-        print(f"✅ Đã load {len(models)} models thành công!")
-        print(f"   Models: {list(models.keys())}")
-        if model_file == 'weather_models_final.pkl':
+    # Load final model (để dự báo)
+    if os.path.exists('weather_models_final.pkl'):
+        try:
+            print("Loading weather_models_final.pkl (for forecasting)...")
+            with open('weather_models_final.pkl', 'rb') as f:
+                models_data = pickle.load(f)
+            models_final = models_data['models']
+            feature_cols_dict_final = models_data['feature_cols']
+            loaded_final = True
+            print(f"✅ Đã load {len(models_final)} FINAL models thành công!")
+            print(f"   Models: {list(models_final.keys())}")
             print(f"   Using FINAL models (trained on ALL data 2017-2026-01-02)")
-            if 'Temp_numeric' in models:
+            if 'Temp_numeric' in models_final:
                 print(f"   - Temp model: R² ~97%")
-            if 'Temp_numeric_hcm' in models:
+            if 'Temp_numeric_hcm' in models_final:
                 print(f"   - HCM Temp model: R² ~97.6%")
-        elif 'Temp_numeric' in models:
-            print(f"   Using improved temperature model (R² ~94%)")
-            if 'Temp_numeric_hcm' in models:
-                print(f"   Using HCM-specific temperature model (R² ~91.6%)")
-        return True
-    except Exception as e:
-        print(f"❌ Lỗi khi load models: {e}")
+        except Exception as e:
+            print(f"⚠️  Lỗi khi load weather_models_final.pkl: {e}")
+    else:
+        print("⚠️  Không tìm thấy weather_models_final.pkl")
+    
+    # Load improved model (để test/validation)
+    if os.path.exists('weather_models_improved.pkl'):
+        try:
+            print("Loading weather_models_improved.pkl (for test/validation)...")
+            with open('weather_models_improved.pkl', 'rb') as f:
+                models_data = pickle.load(f)
+            models_improved = models_data['models']
+            feature_cols_dict_improved = models_data['feature_cols']
+            loaded_improved = True
+            print(f"✅ Đã load {len(models_improved)} IMPROVED models thành công!")
+            print(f"   Models: {list(models_improved.keys())}")
+            print(f"   Using IMPROVED models (trained with train/val/test split)")
+            if 'Temp_numeric' in models_improved:
+                print(f"   - Temp model: R² ~94%")
+            if 'Temp_numeric_hcm' in models_improved:
+                print(f"   - HCM Temp model: R² ~91.6%")
+        except Exception as e:
+            print(f"⚠️  Lỗi khi load weather_models_improved.pkl: {e}")
+    else:
+        print("⚠️  Không tìm thấy weather_models_improved.pkl")
+    
+    # Set default models (ưu tiên final, fallback improved)
+    if loaded_final:
+        models = models_final
+        feature_cols_dict = feature_cols_dict_final
+        print("\n✅ Sử dụng FINAL models làm mặc định (cho dự báo)")
+    elif loaded_improved:
+        models = models_improved
+        feature_cols_dict = feature_cols_dict_improved
+        print("\n⚠️  Sử dụng IMPROVED models làm mặc định (fallback)")
+    else:
+        # Fallback to old model
+        if os.path.exists('weather_models.pkl'):
+            try:
+                print("Loading weather_models.pkl (old model)...")
+                with open('weather_models.pkl', 'rb') as f:
+                    models_data = pickle.load(f)
+                models = models_data['models']
+                feature_cols_dict = models_data['feature_cols']
+                print(f"✅ Đã load {len(models)} OLD models thành công!")
+            except Exception as e:
+                print(f"❌ Lỗi khi load weather_models.pkl: {e}")
+                return False
+        else:
+            print(f"❌ Không tìm thấy model nào!")
+            print("   Vui lòng chạy: python train_final_models.py hoặc python train_improved_models.py")
+            return False
+    
+    if not loaded_final and not loaded_improved:
         return False
+    
+    return True
+
+def get_models_for_route(use_improved=False):
+    """
+    Lấy models và feature_cols phù hợp cho route
+    - use_improved=True: dùng improved model (cho test/validation/charts)
+    - use_improved=False: dùng final model (cho forecast)
+    """
+    global models_final, feature_cols_dict_final
+    global models_improved, feature_cols_dict_improved
+    
+    if use_improved and len(models_improved) > 0:
+        return models_improved, feature_cols_dict_improved
+    elif len(models_final) > 0:
+        return models_final, feature_cols_dict_final
+    elif len(models_improved) > 0:
+        return models_improved, feature_cols_dict_improved
+    else:
+        return models, feature_cols_dict
 
 def load_data():
     """Load data from SQLite database (fallback to CSV if database doesn't exist)"""
@@ -256,6 +318,9 @@ def predict():
         except:
             return jsonify({'error': 'Invalid date format'}), 400
         
+        # Dùng improved model cho test/validation
+        route_models, route_feature_cols = get_models_for_route(use_improved=True)
+        
         df = load_data()
         
         train_end = '2022-12-31'
@@ -311,16 +376,16 @@ def predict():
         
         for target in target_vars:
             # Chọn model phù hợp: model riêng cho HCM hoặc model chung
-            if target == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in models:
+            if target == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                 model_key = 'Temp_numeric_hcm'
             else:
                 model_key = target
             
-            if model_key not in models:
+            if model_key not in route_models:
                 continue
             
-            feature_cols = feature_cols_dict[model_key]
-            model = models[model_key]
+            feature_cols = route_feature_cols[model_key]
+            model = route_models[model_key]
             
             # Map tên cột từ _numeric sang tên gốc nếu cần (models dùng _numeric, data dùng tên gốc)
             feature_mapping = {}
@@ -378,6 +443,9 @@ def get_detail_data():
         except:
             return jsonify({'error': 'Invalid date format'}), 400
         
+        # Dùng improved model cho test/validation
+        route_models, route_feature_cols = get_models_for_route(use_improved=True)
+        
         df = load_data()
         
         train_end = '2022-12-31'
@@ -430,16 +498,16 @@ def get_detail_data():
         
         for target in target_vars:
             # Chọn model phù hợp: model riêng cho HCM hoặc model chung
-            if target == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in models:
+            if target == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                 model_key = 'Temp_numeric_hcm'
             else:
                 model_key = target
             
-            if model_key not in models:
+            if model_key not in route_models:
                 continue
             
-            feature_cols = feature_cols_dict[model_key]
-            model = models[model_key]
+            feature_cols = route_feature_cols[model_key]
+            model = route_models[model_key]
             
             # Map tên cột từ _numeric sang tên gốc nếu cần (models dùng _numeric, data dùng tên gốc)
             feature_mapping = {}
@@ -492,7 +560,7 @@ def get_detail_data():
         }
         
         for target in target_vars:
-            if target not in models:
+            if target not in route_models:
                 continue
             
             attr_key = target.replace('_numeric', '')
@@ -519,6 +587,9 @@ def api_charts_year():
     try:
         data = request.json
         city = data.get('city', 'vinh')
+        
+        # Dùng improved model cho đánh giá dữ liệu
+        route_models, route_feature_cols = get_models_for_route(use_improved=True)
         
         df = load_data()
         city_df = df[df['city'] == city].copy()
@@ -559,14 +630,14 @@ def api_charts_year():
                 for target in ['Temp', 'Cloud', 'Pressure', 'Wind', 'Gust']:
                     target_key = f'{target}_numeric'
                     # Chọn model phù hợp: model riêng cho HCM hoặc model chung
-                    if target_key == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in models:
+                    if target_key == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                         model_key = 'Temp_numeric_hcm'
                     else:
                         model_key = target_key
                     
-                    if model_key in models:
+                    if model_key in route_models:
                         year_data_features = create_features_for_prediction(year_data.copy(), target)
-                        feature_cols = feature_cols_dict.get(model_key, [])
+                        feature_cols = route_feature_cols.get(model_key, [])
                         
                         if len(feature_cols) > 0:
                             # Map tên cột từ _numeric sang tên gốc nếu cần
@@ -592,7 +663,7 @@ def api_charts_year():
                                     X[f] = 0
                             
                             X = X[feature_cols].fillna(0)
-                            pred = models[model_key].predict(X)
+                            pred = route_models[model_key].predict(X)
                             predictions.append(float(np.mean(pred)))
                         else:
                             predictions.append(None)
@@ -659,6 +730,9 @@ def api_charts_month():
         city = data.get('city', 'vinh')
         year = int(data.get('year', 2023))
         
+        # Dùng improved model cho đánh giá dữ liệu
+        route_models, route_feature_cols = get_models_for_route(use_improved=True)
+        
         df = load_data()
         city_df = df[(df['city'] == city) & (df['year'] == year)].copy()
         
@@ -699,14 +773,14 @@ def api_charts_month():
                 for target in ['Temp', 'Cloud', 'Pressure', 'Wind', 'Gust']:
                     target_key = f'{target}_numeric'
                     # Chọn model phù hợp: model riêng cho HCM hoặc model chung
-                    if target_key == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in models:
+                    if target_key == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                         model_key = 'Temp_numeric_hcm'
                     else:
                         model_key = target_key
                     
-                    if model_key in models:
+                    if model_key in route_models:
                         month_data_features = create_features_for_prediction(month_data.copy(), target)
-                        feature_cols = feature_cols_dict.get(model_key, [])
+                        feature_cols = route_feature_cols.get(model_key, [])
                         
                         if len(feature_cols) > 0:
                             # Map tên cột từ _numeric sang tên gốc nếu cần
@@ -732,7 +806,7 @@ def api_charts_month():
                                     X[f] = 0
                             
                             X = X[feature_cols].fillna(0)
-                            pred = models[model_key].predict(X)
+                            pred = route_models[model_key].predict(X)
                             predictions.append(float(np.mean(pred)))
                         else:
                             predictions.append(None)
@@ -859,6 +933,9 @@ def api_charts_day():
         year = int(data.get('year', 2023))
         month = int(data.get('month', 1))
         
+        # Dùng improved model cho đánh giá dữ liệu
+        route_models, route_feature_cols = get_models_for_route(use_improved=True)
+        
         df = load_data()
         city_df = df[(df['city'] == city) & (df['year'] == year) & (df['month'] == month)].copy()
         
@@ -899,14 +976,14 @@ def api_charts_day():
                 for target in ['Temp', 'Cloud', 'Pressure', 'Wind', 'Gust']:
                     target_key = f'{target}_numeric'
                     # Chọn model phù hợp: model riêng cho HCM hoặc model chung
-                    if target_key == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in models:
+                    if target_key == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                         model_key = 'Temp_numeric_hcm'
                     else:
                         model_key = target_key
                     
-                    if model_key in models:
+                    if model_key in route_models:
                         day_data_features = create_features_for_prediction(day_data.copy(), target)
-                        feature_cols = feature_cols_dict.get(model_key, [])
+                        feature_cols = route_feature_cols.get(model_key, [])
                         
                         if len(feature_cols) > 0:
                             # Map tên cột từ _numeric sang tên gốc nếu cần
@@ -932,7 +1009,7 @@ def api_charts_day():
                                     X[f] = 0
                             
                             X = X[feature_cols].fillna(0)
-                            pred = models[model_key].predict(X)
+                            pred = route_models[model_key].predict(X)
                             predictions.append(float(np.mean(pred)))
                         else:
                             predictions.append(None)
@@ -1215,6 +1292,9 @@ def api_charts_hour():
         month = int(data.get('month', 1))
         day = int(data.get('day', 1))
         
+        # Dùng improved model cho charts (test/validation)
+        route_models, route_feature_cols = get_models_for_route(use_improved=True)
+        
         df = load_data()
         city_df = df[
             (df['city'] == city) & 
@@ -1267,14 +1347,14 @@ def api_charts_hour():
                 for target in ['Temp', 'Cloud', 'Pressure', 'Wind', 'Gust']:
                     target_key = f'{target}_numeric'
                     # Chọn model phù hợp: model riêng cho HCM hoặc model chung
-                    if target_key == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in models:
+                    if target_key == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                         model_key = 'Temp_numeric_hcm'
                     else:
                         model_key = target_key
                     
-                    if model_key in models:
+                    if model_key in route_models:
                         hour_data_features = create_features_for_prediction(hour_data.copy(), target)
-                        feature_cols = feature_cols_dict.get(model_key, [])
+                        feature_cols = route_feature_cols.get(model_key, [])
                         
                         if len(feature_cols) > 0:
                             # Map tên cột từ _numeric sang tên gốc nếu cần
@@ -1300,7 +1380,7 @@ def api_charts_hour():
                                     X[f] = 0
                             
                             X = X[feature_cols].fillna(0)
-                            pred = models[model_key].predict(X)
+                            pred = route_models[model_key].predict(X)
                             predictions.append(float(pred[0]) if len(pred) > 0 else None)
                         else:
                             predictions.append(None)
@@ -1503,20 +1583,21 @@ def api_forecast():
             else:
                 forecast_df = create_features_for_prediction(forecast_df, 'Temp')
             
-            # Predict cho từng attribute
+            # Predict cho từng attribute - dùng final model cho forecast
+            route_models, route_feature_cols = get_models_for_route(use_improved=False)
             all_predictions = {}
             for target in target_vars:
                 # Chọn model phù hợp
-                if target == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in models:
+                if target == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                     model_key = 'Temp_numeric_hcm'
                 else:
                     model_key = target
                 
-                if model_key not in models:
+                if model_key not in route_models:
                     continue
                 
-                feature_cols = feature_cols_dict[model_key]
-                model = models[model_key]
+                feature_cols = route_feature_cols[model_key]
+                model = route_models[model_key]
                 
                 # Map tên cột
                 feature_mapping = {}
@@ -1579,6 +1660,167 @@ def api_forecast():
     except Exception as e:
         import traceback
         return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+@app.route('/admin')
+def admin():
+    return render_template('admin.html')
+
+@app.route('/admin/api/tables', methods=['GET'])
+def admin_get_tables():
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        tables = [row[0] for row in cursor.fetchall()]
+        
+        conn.close()
+        
+        return jsonify({'tables': tables})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/api/stats', methods=['GET'])
+def admin_get_stats():
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        stats = {}
+        
+        cursor.execute("SELECT COUNT(*) FROM weather_data")
+        stats['weather_data_count'] = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(DISTINCT city) FROM weather_data")
+        stats['cities_count'] = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT MIN(datetime), MAX(datetime) FROM weather_data")
+        date_range = cursor.fetchone()
+        stats['date_range'] = {
+            'min': date_range[0],
+            'max': date_range[1]
+        }
+        
+        cursor.execute("SELECT COUNT(*) FROM accuracy_results")
+        stats['accuracy_results_count'] = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        stats['tables_count'] = len(cursor.fetchall())
+        
+        conn.close()
+        
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/api/table/<table_name>', methods=['GET'])
+def admin_get_table_data(table_name):
+    try:
+        from database import get_db_connection
+        import sqlite3
+        
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 100, type=int)
+        search = request.args.get('search', '', type=str)
+        city = request.args.get('city', '', type=str)
+        date_from = request.args.get('date_from', '', type=str)
+        date_to = request.args.get('date_to', '', type=str)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if table_name not in ['weather_data', 'accuracy_results']:
+            conn.close()
+            return jsonify({'error': 'Invalid table name'}), 400
+        
+        query = f"SELECT * FROM {table_name}"
+        count_query = f"SELECT COUNT(*) FROM {table_name}"
+        conditions = []
+        params = []
+        
+        if table_name == 'weather_data':
+            if search:
+                conditions.append("(city LIKE ? OR date LIKE ? OR Time LIKE ?)")
+                search_param = f"%{search}%"
+                params.extend([search_param, search_param, search_param])
+            if city:
+                conditions.append("city = ?")
+                params.append(city)
+            if date_from:
+                conditions.append("date >= ?")
+                params.append(date_from)
+            if date_to:
+                conditions.append("date <= ?")
+                params.append(date_to)
+        elif table_name == 'accuracy_results':
+            if search:
+                conditions.append("(city LIKE ? OR calculated_at LIKE ?)")
+                search_param = f"%{search}%"
+                params.extend([search_param, search_param])
+            if city:
+                conditions.append("city = ?")
+                params.append(city)
+        
+        if conditions:
+            where_clause = " WHERE " + " AND ".join(conditions)
+            query += where_clause
+            count_query += where_clause
+        
+        cursor.execute(count_query, params)
+        total_count = cursor.fetchone()[0]
+        
+        offset = (page - 1) * per_page
+        query += f" ORDER BY id DESC LIMIT ? OFFSET ?"
+        params.extend([per_page, offset])
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        columns = [description[0] for description in cursor.description]
+        data = []
+        for row in rows:
+            row_dict = {}
+            for i, col in enumerate(columns):
+                value = row[i]
+                if value is None:
+                    row_dict[col] = None
+                elif isinstance(value, (int, float)):
+                    row_dict[col] = value
+                else:
+                    row_dict[col] = str(value)
+            data.append(row_dict)
+        
+        conn.close()
+        
+        return jsonify({
+            'data': data,
+            'columns': columns,
+            'total': total_count,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': (total_count + per_page - 1) // per_page
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+@app.route('/admin/api/cities', methods=['GET'])
+def admin_get_cities():
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT DISTINCT city FROM weather_data ORDER BY city")
+        cities = [row[0] for row in cursor.fetchall()]
+        
+        conn.close()
+        
+        return jsonify({'cities': cities})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     print("="*70)
