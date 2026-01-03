@@ -1,0 +1,80 @@
+name: Test Demo (Không ảnh hưởng bản chính)
+
+on:
+  workflow_dispatch: # Chỉ chạy thủ công
+
+jobs:
+  test-demo:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y chromium-browser chromium-chromedriver
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Setup Chrome for Selenium
+      run: |
+        export CHROME_BIN=/usr/bin/chromium-browser
+        export CHROMEDRIVER_PATH=/usr/bin/chromedriver
+        echo "CHROME_BIN=$CHROME_BIN" >> $GITHUB_ENV
+        echo "CHROMEDRIVER_PATH=$CHROMEDRIVER_PATH" >> $GITHUB_ENV
+    
+    - name: Test - Initialize database
+      run: |
+        python -c "from database import init_database; init_database(); print('✅ Database initialized successfully!')"
+    
+    - name: Test - Check database connection
+      run: |
+        python -c "from database import get_db_connection, get_data_count; conn = get_db_connection(); count = get_data_count(); print(f'✅ Database connected! Current records: {count}'); conn.close()"
+    
+    - name: Test - Import crawl module
+      run: |
+        python -c "from crawl_weather import WeatherCrawler; print('✅ Crawl module imported successfully!')"
+    
+    - name: Test - Import train module
+      run: |
+        python -c "import train_final_models; print('✅ Train module imported successfully!')"
+    
+    - name: Test - Check Selenium setup
+      run: |
+        python -c "
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        import os
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        if os.environ.get('CHROME_BIN'):
+            chrome_options.binary_location = os.environ.get('CHROME_BIN')
+        driver = webdriver.Chrome(options=chrome_options)
+        driver.get('https://www.google.com')
+        print('✅ Selenium working! Page title:', driver.title)
+        driver.quit()
+        "
+    
+    - name: Test Summary
+      run: |
+        echo "=========================================="
+        echo "✅ TẤT CẢ TEST ĐỀU THÀNH CÔNG!"
+        echo "=========================================="
+        echo "✅ Database: OK"
+        echo "✅ Python modules: OK"
+        echo "✅ Selenium/Chrome: OK"
+        echo "✅ Environment: Ready for crawl and train"
+        echo "=========================================="
+
