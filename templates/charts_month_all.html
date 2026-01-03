@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biểu Đồ Theo Tháng (Toàn Bộ) - Weather Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='charts.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .minmax-btn {
+            margin-top: 10px;
+            padding: 8px 16px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+        .minmax-btn:hover {
+            background-color: #2563eb;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover,
+        .close:focus {
+            color: #000;
+        }
+        .minmax-content {
+            margin-top: 20px;
+        }
+        .minmax-item {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border-left: 4px solid;
+        }
+        .minmax-item.min {
+            background-color: #dbeafe;
+            border-left-color: #3b82f6;
+        }
+        .minmax-item.max {
+            background-color: #fee2e2;
+            border-left-color: #ef4444;
+        }
+        .minmax-item h3 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+        }
+        .minmax-item p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .minmax-item .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1f2937;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="sidebar-logo-icon">🌤️</div>
+                <div class="sidebar-logo-text">Weather</div>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="sidebar-nav-item">
+                    <a href="/" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">🏠</span>
+                        <span>Trang chủ</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/year/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📊</span>
+                        <span>Biểu đồ năm (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/month/all" class="sidebar-nav-link active">
+                        <span class="sidebar-nav-icon">📅</span>
+                        <span>Biểu đồ tháng (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/day/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📆</span>
+                        <span>Biểu đồ ngày (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/hour/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">⏰</span>
+                        <span>Biểu đồ giờ (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item has-submenu">
+                    <a href="#" class="sidebar-nav-link" onclick="toggleSubmenu(event, this)">
+                        <span class="sidebar-nav-icon">🧪</span>
+                        <span>Đánh giá dữ liệu</span>
+                    </a>
+                    <ul class="sidebar-submenu">
+                        <li class="sidebar-submenu-item">
+                            <a href="/test" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">🧪</span>
+                                <span>Test dữ liệu</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/accuracy" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📊</span>
+                                <span>Độ chính xác</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/year" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📈</span>
+                                <span>Biểu đồ năm</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/month" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📅</span>
+                                <span>Biểu đồ tháng</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/day" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📆</span>
+                                <span>Biểu đồ ngày</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/hour" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">⏰</span>
+                                <span>Biểu đồ giờ</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header-bar">
+                <div class="header-title-section">
+                    <h1 class="header-title">Biểu Đồ Thời Tiết Theo Tháng (Toàn Bộ Dữ Liệu)</h1>
+                    <p class="header-subtitle">Chọn thành phố và năm để xem biểu đồ thống kê theo tháng với toàn bộ dữ liệu thực có sẵn</p>
+                </div>
+            </header>
+
+            <div class="main-content-body">
+
+            <div class="charts-form-container">
+                <div class="charts-form-row two-columns">
+                    <div class="charts-form-group">
+                        <label for="citySelect" class="charts-form-label">🏙️ Chọn Thành Phố</label>
+                        <select id="citySelect" class="charts-form-select">
+                            <option value="vinh">Vinh</option>
+                            <option value="ha-noi">Hà Nội</option>
+                            <option value="ho-chi-minh-city">Hồ Chí Minh</option>
+                        </select>
+                    </div>
+                    <div class="charts-form-group">
+                        <label for="yearSelect" class="charts-form-label">📅 Chọn Năm</label>
+                        <select id="yearSelect" class="charts-form-select">
+                            <option value="2017">2017</option>
+                            <option value="2018">2018</option>
+                            <option value="2019">2019</option>
+                            <option value="2020">2020</option>
+                            <option value="2021">2021</option>
+                            <option value="2022">2022</option>
+                            <option value="2023">2023</option>
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
+                            <option value="2026" selected>2026</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="loadCharts()" class="charts-btn-primary">📊 Tải Biểu Đồ</button>
+                
+                <div class="charts-header-info">
+                    <div class="charts-header-info-icon">ℹ️</div>
+                    <div class="charts-header-info-text">
+                        <strong>Lưu ý:</strong> Biểu đồ chỉ hiển thị dữ liệu thực tế (không có dự đoán) cho 12 tháng trong năm đã chọn. 
+                        Dữ liệu được hiển thị bằng <strong>nét liền</strong> (màu xanh).
+                    </div>
+                </div>
+            </div>
+
+            <div id="loading" class="charts-loading" style="display: none;">
+                <div class="charts-spinner"></div>
+                <p>Đang tải dữ liệu...</p>
+            </div>
+
+            <div id="error" class="charts-error" style="display: none;"></div>
+
+            <div id="chartsContainer" class="charts-container" style="display: none;">
+                <div class="chart-card">
+                    <div class="chart-title">Nhiệt Độ (°C)</div>
+                    <div class="chart-wrapper">
+                        <canvas id="tempChart"></canvas>
+                    </div>
+                    <button class="minmax-btn" onclick="showMinMax('temp')">📊 Xem Min/Max</button>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-title">Mây (%)</div>
+                    <div class="chart-wrapper">
+                        <canvas id="cloudChart"></canvas>
+                    </div>
+                    <button class="minmax-btn" onclick="showMinMax('cloud')">📊 Xem Min/Max</button>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-title">Áp Suất (hPa)</div>
+                    <div class="chart-wrapper">
+                        <canvas id="pressureChart"></canvas>
+                    </div>
+                    <button class="minmax-btn" onclick="showMinMax('pressure')">📊 Xem Min/Max</button>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-title">Gió (km/h)</div>
+                    <div class="chart-wrapper">
+                        <canvas id="windChart"></canvas>
+                    </div>
+                    <button class="minmax-btn" onclick="showMinMax('wind')">📊 Xem Min/Max</button>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-title">Gió Giật (km/h)</div>
+                    <div class="chart-wrapper">
+                        <canvas id="gustChart"></canvas>
+                    </div>
+                    <button class="minmax-btn" onclick="showMinMax('gust')">📊 Xem Min/Max</button>
+                </div>
+            </div>
+            
+            <!-- Modal for Min/Max -->
+            <div id="minMaxModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <span class="close" onclick="closeMinMaxModal()">&times;</span>
+                    <h2 id="modalTitle">Thông Số Min/Max</h2>
+                    <div id="minMaxContent" class="minmax-content">
+                        <div class="loading">Đang tải dữ liệu...</div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let charts = {};
+
+        function loadCharts() {
+            const city = document.getElementById('citySelect').value;
+            const year = parseInt(document.getElementById('yearSelect').value);
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const chartsContainer = document.getElementById('chartsContainer');
+
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            chartsContainer.style.display = 'none';
+
+            fetch('/api/charts/month/all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ city: city, year: year })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = 'none';
+                if (data.error) {
+                    error.textContent = data.error;
+                    error.style.display = 'block';
+                    return;
+                }
+
+                chartsContainer.style.display = 'grid';
+                renderCharts(data);
+            })
+            .catch(err => {
+                loading.style.display = 'none';
+                error.textContent = 'Lỗi khi tải dữ liệu: ' + err.message;
+                error.style.display = 'block';
+            });
+        }
+
+        function renderCharts(data) {
+            const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+                              'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+            const labels = data.months.map(m => monthNames[m - 1]);
+
+            const chartConfig = {
+                type: 'line',
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            };
+
+            // Chỉ hiển thị dữ liệu thực, không có dự đoán
+            const chartsData = {
+                temp: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Dữ Liệu Thực',
+                            data: data.actual.temp,
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                cloud: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Dữ Liệu Thực',
+                            data: data.actual.cloud,
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                pressure: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Dữ Liệu Thực',
+                            data: data.actual.pressure,
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                wind: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Dữ Liệu Thực',
+                            data: data.actual.wind,
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                gust: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Dữ Liệu Thực',
+                            data: data.actual.gust,
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4
+                        }
+                    ]
+                }
+            };
+
+            const chartIds = ['temp', 'cloud', 'pressure', 'wind', 'gust'];
+            chartIds.forEach(id => {
+                if (charts[id]) {
+                    charts[id].destroy();
+                }
+                charts[id] = new Chart(
+                    document.getElementById(id + 'Chart'),
+                    {
+                        ...chartConfig,
+                        data: chartsData[id]
+                    }
+                );
+            });
+        }
+
+        function toggleSubmenu(event, element) {
+            event.preventDefault();
+            const parent = element.closest('.sidebar-nav-item');
+            parent.classList.toggle('open');
+        }
+
+        function checkActiveSubmenu() {
+            const currentPath = window.location.pathname;
+            const submenuLinks = document.querySelectorAll('.sidebar-submenu-link');
+            submenuLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                    link.closest('.sidebar-nav-item.has-submenu').classList.add('open');
+                }
+            });
+        }
+
+        function showMinMax(metric) {
+            const city = document.getElementById('citySelect').value;
+            const year = parseInt(document.getElementById('yearSelect').value);
+            const modal = document.getElementById('minMaxModal');
+            const content = document.getElementById('minMaxContent');
+            const title = document.getElementById('modalTitle');
+            
+            const metricNames = {
+                'temp': 'Nhiệt Độ (°C)',
+                'cloud': 'Mây (%)',
+                'pressure': 'Áp Suất (hPa)',
+                'wind': 'Gió (km/h)',
+                'gust': 'Gió Giật (km/h)'
+            };
+            
+            title.textContent = `Min/Max - ${metricNames[metric]}`;
+            content.innerHTML = '<div class="loading">Đang tải dữ liệu...</div>';
+            modal.style.display = 'block';
+            
+            fetch('/api/charts/month/all/minmax', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ city: city, year: year, metric: metric })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    content.innerHTML = `<div style="color: red;">Lỗi: ${data.error}</div>`;
+                    return;
+                }
+                
+                const unitMap = {
+                    'temp': '°C',
+                    'cloud': '%',
+                    'pressure': 'hPa',
+                    'wind': 'km/h',
+                    'gust': 'km/h'
+                };
+                
+                const unit = unitMap[metric] || '';
+                
+                content.innerHTML = `
+                    <div class="minmax-item min">
+                        <h3>📉 Giá Trị Nhỏ Nhất</h3>
+                        <p class="value">${data.min.value.toFixed(2)} ${unit}</p>
+                        <p><strong>Ngày:</strong> ${data.min.date}</p>
+                        <p><strong>Giờ:</strong> ${data.min.time}</p>
+                        <p><strong>Tháng/Ngày:</strong> Tháng ${data.min.month}, Ngày ${data.min.day}</p>
+                    </div>
+                    <div class="minmax-item max">
+                        <h3>📈 Giá Trị Lớn Nhất</h3>
+                        <p class="value">${data.max.value.toFixed(2)} ${unit}</p>
+                        <p><strong>Ngày:</strong> ${data.max.date}</p>
+                        <p><strong>Giờ:</strong> ${data.max.time}</p>
+                        <p><strong>Tháng/Ngày:</strong> Tháng ${data.max.month}, Ngày ${data.max.day}</p>
+                    </div>
+                `;
+            })
+            .catch(err => {
+                content.innerHTML = `<div style="color: red;">Lỗi khi tải dữ liệu: ${err.message}</div>`;
+            });
+        }
+        
+        function closeMinMaxModal() {
+            document.getElementById('minMaxModal').style.display = 'none';
+        }
+        
+        window.onclick = function(event) {
+            const modal = document.getElementById('minMaxModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        window.onload = function() {
+            checkActiveSubmenu();
+        };
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Dữ Liệu - Weather Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="sidebar-logo-icon">🌤️</div>
+                <div class="sidebar-logo-text">Weather</div>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="sidebar-nav-item">
+                    <a href="/" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">🏠</span>
+                        <span>Trang chủ</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/year/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📊</span>
+                        <span>Biểu đồ năm (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/month/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📅</span>
+                        <span>Biểu đồ tháng (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/day/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📆</span>
+                        <span>Biểu đồ ngày (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/hour/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">⏰</span>
+                        <span>Biểu đồ giờ (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item has-submenu">
+                    <a href="#" class="sidebar-nav-link" onclick="toggleSubmenu(event, this)">
+                        <span class="sidebar-nav-icon">🧪</span>
+                        <span>Đánh giá dữ liệu</span>
+                    </a>
+                    <ul class="sidebar-submenu">
+                        <li class="sidebar-submenu-item">
+                            <a href="/test" class="sidebar-submenu-link active">
+                                <span class="sidebar-nav-icon">🧪</span>
+                                <span>Test dữ liệu</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/accuracy" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📊</span>
+                                <span>Độ chính xác</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/year" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📈</span>
+                                <span>Biểu đồ năm</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/month" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📅</span>
+                                <span>Biểu đồ tháng</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/day" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📆</span>
+                                <span>Biểu đồ ngày</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/hour" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">⏰</span>
+                                <span>Biểu đồ giờ</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header-bar">
+                <div class="header-title-section">
+                    <h1 class="header-title">Dự Báo Thời Tiết</h1>
+                    <p class="header-subtitle">Chọn ngày và thành phố để xem dự báo chi tiết</p>
+                </div>
+            </header>
+
+            <div class="main-content-body">
+                <div class="form-container" style="margin-bottom: 30px;">
+                    <form id="predictForm">
+                        <div class="form-group">
+                            <label for="date">📅 Chọn ngày:</label>
+                            <input type="date" id="date" name="date" required 
+                                   min="2023-01-01" max="2025-12-31">
+                        </div>
+                        <div class="form-group">
+                            <label for="city">🏙️ Chọn thành phố:</label>
+                            <select id="city" name="city" required>
+                                <option value="vinh">Vinh</option>
+                                <option value="ha-noi">Hà Nội</option>
+                                <option value="ho-chi-minh-city">Hồ Chí Minh</option>
+                            </select>
+                        </div>
+                        <button type="submit" id="submitBtn">🔮 Dự Báo</button>
+                    </form>
+                </div>
+
+                <div id="loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Đang xử lý dữ liệu...</p>
+                </div>
+
+                <div id="error" class="error" style="display: none;"></div>
+
+                <div id="results" style="display: none;">
+                    <div id="currentWeatherCard" class="current-weather-card" style="display: none;">
+                        <div class="current-weather-header">
+                            <div>
+                                <div class="current-weather-location" id="currentLocation"></div>
+                                <div class="current-weather-date" id="currentDate"></div>
+                                <div class="current-weather-condition" id="currentCondition"></div>
+                            </div>
+                            <div class="current-weather-icon" id="currentIcon">🌤️</div>
+                        </div>
+                        <div class="current-weather-temp" id="currentTemp">--°C</div>
+                        <div class="current-weather-stats" id="currentWeatherStats"></div>
+                    </div>
+
+                    <div id="detailSection" class="min-max-section" style="display: none;">
+                        <h2 class="section-title">Nhiệt Độ Min/Max</h2>
+                        <div class="min-max-cards" id="minMaxCards"></div>
+                    </div>
+
+                    <div class="forecast-section" id="forecastSection" style="display: none;">
+                        <h2 class="section-title">Dự Báo Theo Giờ</h2>
+                        <div class="temp-prediction">
+                            <div class="temp-prediction-scroll" id="hourlyForecast"></div>
+                        </div>
+                    </div>
+
+                    <div class="forecast-section" id="highlightsSection" style="display: none;">
+                        <h2 class="section-title">Thông Số Chi Tiết</h2>
+                        <div class="highlights-grid" id="highlightsGrid"></div>
+                    </div>
+
+                    <div class="data-table-section" id="dataTableSection" style="display: none;">
+                        <h2 class="section-title" style="margin-bottom: 20px;">Dữ Liệu Theo Giờ</h2>
+                        <div class="tabs" style="margin-bottom: 20px;">
+                            <button class="tab-btn active" data-attr="Temp">🌡️ Nhiệt độ</button>
+                            <button class="tab-btn" data-attr="Rain">🌧️ Mưa</button>
+                            <button class="tab-btn" data-attr="Cloud">☁️ Mây</button>
+                            <button class="tab-btn" data-attr="Pressure">📊 Áp suất</button>
+                            <button class="tab-btn" data-attr="Wind">💨 Gió</button>
+                            <button class="tab-btn" data-attr="Gust">🌪️ Gió giật</button>
+                        </div>
+                        <div id="chartContainer"></div>
+                    </div>
+
+                    <div class="summary" id="summarySection" style="display: none;">
+                        <h3>📊 Tổng Kết</h3>
+                        <div id="summaryContent"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const form = document.getElementById('predictForm');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const results = document.getElementById('results');
+        const submitBtn = document.getElementById('submitBtn');
+
+        const cityNames = {
+            'vinh': 'Vinh',
+            'ha-noi': 'Hà Nội',
+            'ho-chi-minh-city': 'Hồ Chí Minh'
+        };
+
+        const cityIcons = {
+            'vinh': '🌤️',
+            'ha-noi': '🌤️',
+            'ho-chi-minh-city': '🌤️'
+        };
+
+        const today = new Date();
+        const maxDate = new Date('2025-12-31');
+        const defaultDate = today > maxDate ? maxDate : today;
+        document.getElementById('date').value = defaultDate.toISOString().split('T')[0];
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const date = document.getElementById('date').value;
+            const city = document.getElementById('city').value;
+            
+            results.style.display = 'none';
+            error.style.display = 'none';
+            loading.style.display = 'block';
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ date, city })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Có lỗi xảy ra');
+                }
+                
+                await displayResults(data);
+                
+            } catch (err) {
+                error.textContent = '❌ ' + err.message;
+                error.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        });
+
+        async function displayResults(data) {
+            const currentCard = document.getElementById('currentWeatherCard');
+            document.getElementById('currentLocation').textContent = `${cityNames[data.city]}, Việt Nam`;
+            
+            const dateObj = new Date(data.date);
+            const day = dateObj.getDate();
+            const month = dateObj.getMonth() + 1;
+            const year = dateObj.getFullYear();
+            const dayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+            const dayName = dayNames[dateObj.getDay()];
+            document.getElementById('currentDate').textContent = `${dayName}, ${day}/${month}/${year}`;
+            
+            document.getElementById('currentCondition').textContent = 'Dự báo thời tiết';
+            document.getElementById('currentIcon').textContent = cityIcons[data.city] || '🌤️';
+            
+            const tempData = data.attributes.Temp;
+            const avgTemp = tempData.predicted.reduce((a, b) => a + b, 0) / tempData.predicted.length;
+            document.getElementById('currentTemp').textContent = `${avgTemp.toFixed(1)}°C`;
+            
+            const cloudData = data.attributes.Cloud;
+            const pressureData = data.attributes.Pressure;
+            const windData = data.attributes.Wind;
+            const gustData = data.attributes.Gust;
+            
+            const avgCloud = cloudData.predicted.reduce((a, b) => a + b, 0) / cloudData.predicted.length;
+            const avgPressure = pressureData.predicted.reduce((a, b) => a + b, 0) / pressureData.predicted.length;
+            const avgWind = windData.predicted.reduce((a, b) => a + b, 0) / windData.predicted.length;
+            const avgGust = gustData.predicted.reduce((a, b) => a + b, 0) / gustData.predicted.length;
+            
+            const statsContainer = document.getElementById('currentWeatherStats');
+            statsContainer.innerHTML = `
+                <div class="weather-stats-grid">
+                    <div class="weather-stat-item">
+                        <div class="stat-icon">☁️</div>
+                        <div class="stat-label">Mây</div>
+                        <div class="stat-value">${Math.round(avgCloud)}%</div>
+                    </div>
+                    <div class="weather-stat-item">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-label">Áp suất</div>
+                        <div class="stat-value">${Math.round(avgPressure)} mb</div>
+                    </div>
+                    <div class="weather-stat-item">
+                        <div class="stat-icon">💨</div>
+                        <div class="stat-label">Gió</div>
+                        <div class="stat-value">${Math.round(avgWind)} km/h</div>
+                    </div>
+                    <div class="weather-stat-item">
+                        <div class="stat-icon">🌪️</div>
+                        <div class="stat-label">Gió giật</div>
+                        <div class="stat-value">${Math.round(avgGust)} km/h</div>
+                    </div>
+                </div>
+            `;
+            
+            currentCard.style.display = 'block';
+
+            try {
+                const detailResponse = await fetch('/detail_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        date: data.date, 
+                        city: data.city 
+                    })
+                });
+                
+                if (detailResponse.ok) {
+                    const detailData = await detailResponse.json();
+                    displayDetailSection(detailData);
+                    displayHourlyForecast(detailData);
+                    displayHighlights(detailData);
+                }
+            } catch (err) {
+                console.error('Không thể load chi tiết:', err);
+            }
+
+            setupTabs(data);
+            renderSummary(data);
+            
+            document.getElementById('forecastSection').style.display = 'block';
+            document.getElementById('highlightsSection').style.display = 'block';
+            document.getElementById('dataTableSection').style.display = 'block';
+            document.getElementById('summarySection').style.display = 'block';
+            
+            results.style.display = 'block';
+            results.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function displayDetailSection(data) {
+            const detailSection = document.getElementById('detailSection');
+            detailSection.style.display = 'block';
+            
+            const minMaxCards = document.getElementById('minMaxCards');
+            const tempMinMax = data.min_max.Temp;
+            
+            minMaxCards.innerHTML = `
+                <div class="min-max-card">
+                    <h3>Nhiệt Độ Thấp Nhất</h3>
+                    <div class="temp-display">${tempMinMax.actual_min.toFixed(1)}°C</div>
+                    <div class="temp-label">Thực tế</div>
+                    <div class="temp-display" style="font-size: 2.5em;">${tempMinMax.predicted_min.toFixed(1)}°C</div>
+                    <div class="temp-label">Dự báo</div>
+                    <div class="error-badge ${tempMinMax.min_error <= 2.0 ? 'error-ok' : 'error-bad'}">
+                        Sai số: ${tempMinMax.min_error.toFixed(2)}°C ${tempMinMax.min_error <= 2.0 ? '✅ OK' : '❌ TỆ'}
+                    </div>
+                </div>
+                <div class="min-max-card">
+                    <h3>Nhiệt Độ Cao Nhất</h3>
+                    <div class="temp-display">${tempMinMax.actual_max.toFixed(1)}°C</div>
+                    <div class="temp-label">Thực tế</div>
+                    <div class="temp-display" style="font-size: 2.5em;">${tempMinMax.predicted_max.toFixed(1)}°C</div>
+                    <div class="temp-label">Dự báo</div>
+                    <div class="error-badge ${tempMinMax.max_error <= 2.0 ? 'error-ok' : 'error-bad'}">
+                        Sai số: ${tempMinMax.max_error.toFixed(2)}°C ${tempMinMax.max_error <= 2.0 ? '✅ OK' : '❌ TỆ'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayHourlyForecast(data) {
+            const hourlyForecast = document.getElementById('hourlyForecast');
+            const tempData = data.attributes.Temp;
+            let html = '';
+            
+            for (let i = 0; i < data.hours.length; i++) {
+                const hour = data.hours[i];
+                const temp = tempData.predicted[i];
+                const hourNum = parseInt(hour.split(':')[0]);
+                const icon = getWeatherIcon(temp, hourNum);
+                
+                html += `
+                    <div class="hour-item">
+                        <div class="hour-time">${hour}</div>
+                        <div class="hour-icon">${icon}</div>
+                        <div class="hour-temp">${temp.toFixed(1)}°C</div>
+                    </div>
+                `;
+            }
+            
+            hourlyForecast.innerHTML = html;
+        }
+
+        function getWeatherIcon(temp, hour) {
+            if (hour >= 6 && hour < 18) {
+                if (temp > 30) return '☀️';
+                if (temp > 25) return '🌤️';
+                return '⛅';
+            } else {
+                if (temp > 25) return '🌙';
+                return '🌑';
+            }
+        }
+
+        function displayHighlights(data) {
+            const highlightsGrid = document.getElementById('highlightsGrid');
+            const highlights = [
+                {
+                    title: 'Mưa',
+                    icon: '🌧️',
+                    value: `${data.min_max.Rain.actual_max.toFixed(1)} mm`,
+                    status: data.min_max.Rain.actual_max > 5 ? 'heavy' : 'normal'
+                },
+                {
+                    title: 'Mây',
+                    icon: '☁️',
+                    value: `${data.min_max.Cloud.actual_max.toFixed(0)}%`,
+                    status: data.min_max.Cloud.actual_max > 70 ? 'heavy' : 'normal'
+                },
+                {
+                    title: 'Áp suất',
+                    icon: '📊',
+                    value: `${data.min_max.Pressure.actual_max.toFixed(0)} mb`,
+                    status: 'normal'
+                },
+                {
+                    title: 'Gió',
+                    icon: '💨',
+                    value: `${data.min_max.Wind.actual_max.toFixed(0)} km/h`,
+                    status: data.min_max.Wind.actual_max > 30 ? 'heavy' : 'normal'
+                },
+                {
+                    title: 'Gió giật',
+                    icon: '🌪️',
+                    value: `${data.min_max.Gust.actual_max.toFixed(0)} km/h`,
+                    status: data.min_max.Gust.actual_max > 40 ? 'heavy' : 'normal'
+                }
+            ];
+            
+            let html = '';
+            highlights.forEach(highlight => {
+                html += `
+                    <div class="highlight-card">
+                        <div class="highlight-header">
+                            <div class="highlight-title">${highlight.title}</div>
+                            <div class="highlight-icon">${highlight.icon}</div>
+                        </div>
+                        <div class="highlight-status ${highlight.status}">${highlight.status === 'heavy' ? 'Cao' : 'Bình thường'}</div>
+                        <div class="highlight-value">${highlight.value}</div>
+                    </div>
+                `;
+            });
+            
+            highlightsGrid.innerHTML = html;
+        }
+
+        function setupTabs(data) {
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            let currentAttr = 'Temp';
+            
+            tabButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    tabButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentAttr = btn.dataset.attr;
+                    renderChart(data, currentAttr);
+                });
+            });
+            
+            renderChart(data, currentAttr);
+        }
+
+        function renderChart(data, attr) {
+            const attrData = data.attributes[attr];
+            const container = document.getElementById('chartContainer');
+            
+            const hours = data.hours;
+            const actual = attrData.actual;
+            const predicted = attrData.predicted;
+            const error = attrData.error;
+            
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Giờ</th>
+                            <th>Thực tế</th>
+                            <th>Dự báo</th>
+                            <th>Sai số</th>
+                            <th>Đánh giá</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            for (let i = 0; i < hours.length; i++) {
+                const rating = getRating(error[i], attr);
+                const actualVal = formatValue(actual[i], attr);
+                const predVal = formatValue(predicted[i], attr);
+                const errorVal = formatValue(error[i], attr);
+                
+                html += `
+                    <tr>
+                        <td><strong>${hours[i]}</strong></td>
+                        <td>${actualVal} ${attrData.unit}</td>
+                        <td>${predVal} ${attrData.unit}</td>
+                        <td>${errorVal} ${attrData.unit}</td>
+                        <td>${rating}</td>
+                    </tr>
+                `;
+            }
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        function formatValue(value, attr) {
+            if (attr === 'Temp' || attr === 'Rain') {
+                return value.toFixed(1);
+            } else {
+                return Math.round(value);
+            }
+        }
+
+        function getRating(error, attr) {
+            if (attr === 'Temp') {
+                if (error <= 0.5) return '<span class="rating excellent">✅ Xuất sắc</span>';
+                if (error <= 1.0) return '<span class="rating very-good">✅ Rất tốt</span>';
+                if (error <= 2.0) return '<span class="rating good">✅ Tốt</span>';
+                return '<span class="rating poor">⚠️ Cần cải thiện</span>';
+            } else if (attr === 'Rain') {
+                if (error <= 0.1) return '<span class="rating excellent">✅ Xuất sắc</span>';
+                if (error <= 0.5) return '<span class="rating very-good">✅ Rất tốt</span>';
+                return '<span class="rating poor">⚠️ Cần cải thiện</span>';
+            } else if (attr === 'Cloud') {
+                if (error <= 5) return '<span class="rating excellent">✅ Xuất sắc</span>';
+                if (error <= 10) return '<span class="rating very-good">✅ Rất tốt</span>';
+                if (error <= 20) return '<span class="rating good">✅ Tốt</span>';
+                return '<span class="rating poor">⚠️ Cần cải thiện</span>';
+            } else if (attr === 'Pressure') {
+                if (error <= 1) return '<span class="rating excellent">✅ Xuất sắc</span>';
+                if (error <= 2) return '<span class="rating very-good">✅ Rất tốt</span>';
+                if (error <= 5) return '<span class="rating good">✅ Tốt</span>';
+                return '<span class="rating poor">⚠️ Cần cải thiện</span>';
+            } else {
+                if (error <= 1) return '<span class="rating excellent">✅ Xuất sắc</span>';
+                if (error <= 2) return '<span class="rating very-good">✅ Rất tốt</span>';
+                return '<span class="rating good">✅ Tốt</span>';
+            }
+        }
+
+        function renderSummary(data) {
+            const summary = document.getElementById('summaryContent');
+            let html = '<div class="summary-grid">';
+            
+            for (const [attr, attrData] of Object.entries(data.attributes)) {
+                html += `
+                    <div class="summary-card">
+                        <h4>${attrData.name}</h4>
+                        <p class="summary-mae">${attrData.mae.toFixed(3)} ${attrData.unit}</p>
+                        <p class="summary-max">Max: ${Math.max(...attrData.error).toFixed(2)} ${attrData.unit}</p>
+                        <p class="summary-min">Min: ${Math.min(...attrData.error).toFixed(2)} ${attrData.unit}</p>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            summary.innerHTML = html;
+        }
+
+        function toggleSubmenu(event, element) {
+            event.preventDefault();
+            const parent = element.closest('.sidebar-nav-item');
+            parent.classList.toggle('open');
+        }
+
+        function checkActiveSubmenu() {
+            const currentPath = window.location.pathname;
+            const submenuLinks = document.querySelectorAll('.sidebar-submenu-link');
+            submenuLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                    link.closest('.sidebar-nav-item.has-submenu').classList.add('open');
+                }
+            });
+        }
+
+        window.onload = function() {
+            checkActiveSubmenu();
+        };
+    </script>
+</body>
+</html>
+
