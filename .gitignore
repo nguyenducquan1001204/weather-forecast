@@ -10,7 +10,8 @@ ENV/
 .venv
 
 # Database
-*.db
+# weather.db is tracked for GitHub Actions workflow
+# *.db
 *.db-journal
 
 # Model files (uncomment if you don't want to commit models)
