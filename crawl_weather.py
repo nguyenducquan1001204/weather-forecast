@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import pandas as pd
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import sys
@@ -449,14 +449,23 @@ def main():
     # Tự động lấy ngày hôm qua (yesterday) làm mặc định
     # Vì dữ liệu ngày hôm nay thường chưa đầy đủ vào cuối ngày
     # Nên crawl ngày hôm qua để có dữ liệu đầy đủ
-    today = datetime.now().date()
-    yesterday = today - timedelta(days=1)
+    # Sử dụng timezone Asia/Ho_Chi_Minh để đảm bảo tính đúng ngày
+    try:
+        import pytz
+        vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+        today_vn = datetime.now(vn_tz).date()
+    except ImportError:
+        # Fallback nếu không có pytz, sử dụng UTC offset +7
+        utc_now = datetime.now(timezone.utc)
+        vn_offset = timezone(timedelta(hours=7))
+        today_vn = (utc_now.astimezone(vn_offset)).date()
+    
+    yesterday = today_vn - timedelta(days=1)
     yesterday_str = yesterday.strftime("%Y-%m-%d")
     
-    # Mặc định chỉ crawl ngày hôm qua
-    # Có thể chỉnh start_date và end_date nếu muốn crawl nhiều ngày
-    start_date = yesterday_str  # Mặc định: ngày hôm qua
-    end_date = yesterday_str    # Mặc định: ngày hôm qua
+    # Chỉ crawl ngày hôm qua
+    start_date = yesterday_str
+    end_date = yesterday_str
     
     # Sử dụng tên file cố định để có thể thêm dữ liệu mới (backup)
     output_file = "weather_all_cities.csv"
