@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phân Tích Biến Đổi Khí Hậu - Weather Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .climate-container {
+            padding: 20px;
+        }
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .controls-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .control-group select, .control-group input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #3498db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn-load {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-load:hover {
+            background: #2980b9;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-top: 20px;
+        }
+        .trend-summary {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .trend-summary h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .trend-summary p {
+            margin: 5px 0;
+            font-size: 1.1em;
+        }
+        .change-positive {
+            color: #e74c3c;
+        }
+        .change-negative {
+            color: #27ae60;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .comparison-table th, .comparison-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .comparison-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="sidebar-logo-icon">🌤️</div>
+                <div class="sidebar-logo-text">Weather</div>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="sidebar-nav-item">
+                    <a href="/" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">🏠</span>
+                        <span>Trang chủ</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/statistics" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📊</span>
+                        <span>Phân tích thống kê</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/climate" class="sidebar-nav-link active">
+                        <span class="sidebar-nav-icon">🌍</span>
+                        <span>Biến đổi khí hậu</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/accuracy" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📈</span>
+                        <span>Độ chính xác</span>
+                    </a>
+                </li>
+            </ul>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header-bar">
+                <h1 class="header-title">Phân Tích Biến Đổi Khí Hậu</h1>
+            </header>
+
+            <div class="main-content-body">
+                <div class="climate-container">
+                    <div class="controls">
+                        <div class="controls-row">
+                            <div class="control-group">
+                                <label>Thành phố:</label>
+                                <select id="citySelect">
+                                    <option value="vinh">Vinh</option>
+                                    <option value="ha-noi">Hà Nội</option>
+                                    <option value="ho-chi-minh-city">Hồ Chí Minh</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label>Biến số:</label>
+                                <select id="metricSelect">
+                                    <option value="Temp">Nhiệt độ</option>
+                                    <option value="Rain">Mưa</option>
+                                    <option value="Cloud">Mây</option>
+                                    <option value="Pressure">Áp suất</option>
+                                    <option value="Wind">Gió</option>
+                                    <option value="Gust">Gió giật</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="controls-row">
+                            <div class="control-group">
+                                <label>Giai đoạn 1 - Từ năm:</label>
+                                <input type="number" id="period1Start" value="2017" min="2017" max="2025">
+                            </div>
+                            <div class="control-group">
+                                <label>Giai đoạn 1 - Đến năm:</label>
+                                <input type="number" id="period1End" value="2020" min="2017" max="2025">
+                            </div>
+                            <div class="control-group">
+                                <label>Giai đoạn 2 - Từ năm:</label>
+                                <input type="number" id="period2Start" value="2021" min="2017" max="2025">
+                            </div>
+                            <div class="control-group">
+                                <label>Giai đoạn 2 - Đến năm:</label>
+                                <input type="number" id="period2End" value="2025" min="2017" max="2025">
+                            </div>
+                        </div>
+                        <button class="btn-load" onclick="loadAllClimateData()">Tải dữ liệu</button>
+                    </div>
+
+                    <div id="error" class="error" style="display: none;"></div>
+                    <div id="loading" class="loading" style="display: none;">Đang tải...</div>
+
+                    <div id="results" style="display: none;">
+                        <div class="section">
+                            <h2 class="section-title">📈 Xu Hướng Dài Hạn</h2>
+                            <div id="trendSummary"></div>
+                            <div class="chart-container">
+                                <canvas id="trendChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="section">
+                            <h2 class="section-title">🌦️ So Sánh Các Mùa Qua Các Năm</h2>
+                            <div class="chart-container">
+                                <canvas id="seasonalChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="section">
+                            <h2 class="section-title">📊 Đánh Giá Sự Thay Đổi</h2>
+                            <div id="changesTable"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let trendChart = null;
+        let seasonalChart = null;
+
+        async function loadAllClimateData() {
+            const city = document.getElementById('citySelect').value;
+            const metric = document.getElementById('metricSelect').value;
+            const period1Start = parseInt(document.getElementById('period1Start').value);
+            const period1End = parseInt(document.getElementById('period1End').value);
+            const period2Start = parseInt(document.getElementById('period2Start').value);
+            const period2End = parseInt(document.getElementById('period2End').value);
+
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+
+            try {
+                await Promise.all([
+                    loadTrend(city, metric),
+                    loadSeasonal(city, metric),
+                    loadChanges(city, period1Start, period1End, period2Start, period2End)
+                ]);
+                document.getElementById('results').style.display = 'block';
+            } catch (err) {
+                document.getElementById('error').textContent = '❌ ' + err.message;
+                document.getElementById('error').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        async function loadTrend(city, metric) {
+            const response = await fetch('/api/climate/trend', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({city, metric})
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            const summary = document.getElementById('trendSummary');
+            const changeClass = data.total_change >= 0 ? 'change-positive' : 'change-negative';
+            const changeSymbol = data.total_change >= 0 ? '↑' : '↓';
+            
+            summary.innerHTML = `
+                <div class="trend-summary">
+                    <h3>📊 Tóm tắt xu hướng</h3>
+                    <p><strong>Thành phố:</strong> ${city}</p>
+                    <p><strong>Biến số:</strong> ${metric}</p>
+                    <p><strong>Giai đoạn:</strong> ${data.first_year} - ${data.last_year}</p>
+                    <p><strong>Thay đổi tổng:</strong> <span class="${changeClass}">${changeSymbol} ${Math.abs(data.total_change).toFixed(2)}</span></p>
+                    <p><strong>Thay đổi trung bình/năm:</strong> <span class="${changeClass}">${changeSymbol} ${Math.abs(data.annual_change).toFixed(2)}</span></p>
+                </div>
+            `;
+
+            if (trendChart) trendChart.destroy();
+            
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.yearly_average.map(d => d.year),
+                    datasets: [{
+                        label: `Trung bình ${metric} theo năm`,
+                        data: data.yearly_average.map(d => d.value),
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {beginAtZero: false}
+                    }
+                }
+            });
+        }
+
+        async function loadSeasonal(city, metric) {
+            const response = await fetch('/api/climate/seasonal', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({city, metric})
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            const seasons = Object.keys(data.seasonal_data);
+            const years = [...new Set(Object.values(data.seasonal_data).flat().map(d => d.year))].sort();
+            
+            const datasets = seasons.map((season, idx) => {
+                const seasonData = data.seasonal_data[season];
+                const values = years.map(year => {
+                    const yearData = seasonData.find(d => d.year === year);
+                    return yearData ? yearData.mean : null;
+                });
+                
+                const colors = [
+                    'rgba(52, 152, 219, 1)',
+                    'rgba(46, 204, 113, 1)',
+                    'rgba(241, 196, 15, 1)',
+                    'rgba(231, 76, 60, 1)'
+                ];
+                
+                return {
+                    label: season,
+                    data: values,
+                    borderColor: colors[idx % colors.length],
+                    backgroundColor: colors[idx % colors.length].replace('1)', '0.1)'),
+                    tension: 0.4
+                };
+            });
+
+            if (seasonalChart) seasonalChart.destroy();
+            
+            const ctx = document.getElementById('seasonalChart').getContext('2d');
+            seasonalChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: years,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {beginAtZero: false}
+                    }
+                }
+            });
+        }
+
+        async function loadChanges(city, period1Start, period1End, period2Start, period2End) {
+            const response = await fetch('/api/climate/changes', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    city,
+                    period1_start: period1Start,
+                    period1_end: period1End,
+                    period2_start: period2Start,
+                    period2_end: period2End
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            const container = document.getElementById('changesTable');
+            let html = `
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Biến</th>
+                            <th>Giai đoạn 1 (${period1Start}-${period1End})</th>
+                            <th>Giai đoạn 2 (${period2Start}-${period2End})</th>
+                            <th>Thay đổi</th>
+                            <th>Thay đổi (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            for (const [metric, comp] of Object.entries(data.comparison)) {
+                const changeClass = comp.change >= 0 ? 'change-positive' : 'change-negative';
+                const changeSymbol = comp.change >= 0 ? '↑' : '↓';
+                html += `
+                    <tr>
+                        <td><strong>${metric}</strong></td>
+                        <td>${comp.period1.mean.toFixed(2)}</td>
+                        <td>${comp.period2.mean.toFixed(2)}</td>
+                        <td class="${changeClass}">${changeSymbol} ${Math.abs(comp.change).toFixed(2)}</td>
+                        <td class="${changeClass}">${changeSymbol} ${Math.abs(comp.change_percent).toFixed(2)}%</td>
+                    </tr>
+                `;
+            }
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
+

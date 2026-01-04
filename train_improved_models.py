@@ -272,10 +272,28 @@ def train_improved_temp_model(train_df, val_df, test_df):
     y_pred_val = model.predict(X_val)
     y_pred_test = model.predict(X_test)
     
+    # Calculate RMSE
+    rmse_train = np.sqrt(mean_squared_error(y_train, y_pred_train))
+    rmse_val = np.sqrt(mean_squared_error(y_val, y_pred_val))
+    rmse_test = np.sqrt(mean_squared_error(y_test, y_pred_test))
+    
+    # Calculate MAPE
+    def calculate_mape(y_true, y_pred):
+        y_true = np.array(y_true)
+        y_pred = np.array(y_pred)
+        mask = y_true != 0
+        if mask.sum() == 0:
+            return np.nan
+        return np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100
+    
+    mape_train = calculate_mape(y_train, y_pred_train)
+    mape_val = calculate_mape(y_val, y_pred_val)
+    mape_test = calculate_mape(y_test, y_pred_test)
+    
     print("\n  Results:")
-    print(f"    Training   - MAE: {mean_absolute_error(y_train, y_pred_train):.4f}, R²: {r2_score(y_train, y_pred_train):.4f}")
-    print(f"    Validation - MAE: {mean_absolute_error(y_val, y_pred_val):.4f}, R²: {r2_score(y_val, y_pred_val):.4f}")
-    print(f"    Test       - MAE: {mean_absolute_error(y_test, y_pred_test):.4f}, R²: {r2_score(y_test, y_pred_test):.4f}")
+    print(f"    Training   - R²: {r2_score(y_train, y_pred_train):.4f}, MAE: {mean_absolute_error(y_train, y_pred_train):.4f}, RMSE: {rmse_train:.4f}, MAPE: {mape_train:.2f}%")
+    print(f"    Validation - R²: {r2_score(y_val, y_pred_val):.4f}, MAE: {mean_absolute_error(y_val, y_pred_val):.4f}, RMSE: {rmse_val:.4f}, MAPE: {mape_val:.2f}%")
+    print(f"    Test       - R²: {r2_score(y_test, y_pred_test):.4f}, MAE: {mean_absolute_error(y_test, y_pred_test):.4f}, RMSE: {rmse_test:.4f}, MAPE: {mape_test:.2f}%")
     
     # Feature importance
     feature_importance = pd.DataFrame({

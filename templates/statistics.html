@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phân Tích Thống Kê - Weather Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .statistics-container {
+            padding: 20px;
+        }
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .controls-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .control-group select, .control-group input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #3498db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn-load {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-load:hover {
+            background: #2980b9;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .stats-table th, .stats-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .stats-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-top: 20px;
+        }
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="sidebar-logo-icon">🌤️</div>
+                <div class="sidebar-logo-text">Weather</div>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="sidebar-nav-item">
+                    <a href="/" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">🏠</span>
+                        <span>Trang chủ</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/statistics" class="sidebar-nav-link active">
+                        <span class="sidebar-nav-icon">📊</span>
+                        <span>Phân tích thống kê</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/climate" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">🌍</span>
+                        <span>Biến đổi khí hậu</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/accuracy" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📈</span>
+                        <span>Độ chính xác</span>
+                    </a>
+                </li>
+            </ul>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header-bar">
+                <h1 class="header-title">Phân Tích Thống Kê</h1>
+            </header>
+
+            <div class="main-content-body">
+                <div class="statistics-container">
+                    <div class="controls">
+                        <div class="controls-row">
+                            <div class="control-group">
+                                <label>Thành phố:</label>
+                                <select id="citySelect">
+                                    <option value="vinh">Vinh</option>
+                                    <option value="ha-noi">Hà Nội</option>
+                                    <option value="ho-chi-minh-city">Hồ Chí Minh</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label>Từ năm:</label>
+                                <input type="number" id="yearFrom" value="2017" min="2017" max="2025">
+                            </div>
+                            <div class="control-group">
+                                <label>Đến năm:</label>
+                                <input type="number" id="yearTo" value="2025" min="2017" max="2025">
+                            </div>
+                            <div class="control-group">
+                                <label>Biến số (cho phân phối):</label>
+                                <select id="metricSelect">
+                                    <option value="Temp">Nhiệt độ</option>
+                                    <option value="Rain">Mưa</option>
+                                    <option value="Cloud">Mây</option>
+                                    <option value="Pressure">Áp suất</option>
+                                    <option value="Wind">Gió</option>
+                                    <option value="Gust">Gió giật</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn-load" onclick="loadAllStatistics()">Tải dữ liệu</button>
+                    </div>
+
+                    <div id="error" class="error" style="display: none;"></div>
+                    <div id="loading" class="loading" style="display: none;">Đang tải...</div>
+
+                    <div id="results" style="display: none;">
+                        <div class="section">
+                            <h2 class="section-title">📊 Thống Kê Mô Tả</h2>
+                            <div id="descriptiveStats"></div>
+                        </div>
+
+                        <div class="section">
+                            <h2 class="section-title">📈 Phân Phối Dữ Liệu</h2>
+                            <div class="chart-container">
+                                <canvas id="distributionChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="section">
+                            <h2 class="section-title">🔗 Tương Quan Giữa Các Biến</h2>
+                            <div id="correlationTable"></div>
+                        </div>
+
+                        <div class="section">
+                            <h2 class="section-title">📉 Xu Hướng và Mùa Vụ</h2>
+                            <div class="chart-container">
+                                <canvas id="trendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let distributionChart = null;
+        let trendChart = null;
+
+        async function loadAllStatistics() {
+            const city = document.getElementById('citySelect').value;
+            const yearFrom = parseInt(document.getElementById('yearFrom').value);
+            const yearTo = parseInt(document.getElementById('yearTo').value);
+            const metric = document.getElementById('metricSelect').value;
+
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+
+            try {
+                await Promise.all([
+                    loadDescriptiveStats(city, yearFrom, yearTo),
+                    loadDistribution(city, metric, yearFrom, yearTo),
+                    loadCorrelation(city, yearFrom, yearTo),
+                    loadTrend(city, metric, yearFrom, yearTo)
+                ]);
+                document.getElementById('results').style.display = 'block';
+            } catch (err) {
+                document.getElementById('error').textContent = '❌ ' + err.message;
+                document.getElementById('error').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        async function loadDescriptiveStats(city, yearFrom, yearTo) {
+            const response = await fetch('/api/statistics/descriptive', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({city, year_from: yearFrom, year_to: yearTo})
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            const container = document.getElementById('descriptiveStats');
+            let html = '<table class="stats-table"><thead><tr><th>Biến</th><th>Trung bình</th><th>Trung vị</th><th>Độ lệch chuẩn</th><th>Min</th><th>Max</th><th>Q25</th><th>Q75</th><th>Số lượng</th></tr></thead><tbody>';
+            
+            for (const [metric, stats] of Object.entries(data.statistics)) {
+                html += `<tr>
+                    <td><strong>${metric}</strong></td>
+                    <td>${stats.mean.toFixed(2)}</td>
+                    <td>${stats.median.toFixed(2)}</td>
+                    <td>${stats.std.toFixed(2)}</td>
+                    <td>${stats.min.toFixed(2)}</td>
+                    <td>${stats.max.toFixed(2)}</td>
+                    <td>${stats.q25.toFixed(2)}</td>
+                    <td>${stats.q75.toFixed(2)}</td>
+                    <td>${stats.count.toLocaleString()}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        async function loadDistribution(city, metric, yearFrom, yearTo) {
+            const response = await fetch('/api/statistics/distribution', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({city, metric, year_from: yearFrom, year_to: yearTo})
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            if (distributionChart) distributionChart.destroy();
+            
+            const ctx = document.getElementById('distributionChart').getContext('2d');
+            distributionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.histogram.bin_centers.map(x => x.toFixed(1)),
+                    datasets: [{
+                        label: `Phân phối ${metric}`,
+                        data: data.histogram.bins,
+                        backgroundColor: 'rgba(52, 152, 219, 0.6)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {beginAtZero: true}
+                    }
+                }
+            });
+        }
+
+        async function loadCorrelation(city, yearFrom, yearTo) {
+            const response = await fetch('/api/statistics/correlation', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({city, year_from: yearFrom, year_to: yearTo})
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            const container = document.getElementById('correlationTable');
+            const metrics = Object.keys(data.correlation);
+            
+            let html = '<table class="stats-table"><thead><tr><th>Biến</th>';
+            metrics.forEach(m => html += `<th>${m}</th>`);
+            html += '</tr></thead><tbody>';
+            
+            metrics.forEach(metric1 => {
+                html += `<tr><td><strong>${metric1}</strong></td>`;
+                metrics.forEach(metric2 => {
+                    const corr = data.correlation[metric1][metric2];
+                    const color = Math.abs(corr) > 0.7 ? '#c33' : Math.abs(corr) > 0.4 ? '#f90' : '#999';
+                    html += `<td style="color: ${color}">${corr.toFixed(3)}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        async function loadTrend(city, metric, yearFrom, yearTo) {
+            const response = await fetch('/api/statistics/trend', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({city, metric, year_from: yearFrom, year_to: yearTo})
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            if (trendChart) trendChart.destroy();
+            
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.yearly.map(d => d.year),
+                    datasets: [
+                        {
+                            label: 'Trung bình theo năm',
+                            data: data.yearly.map(d => d.mean),
+                            borderColor: 'rgba(52, 152, 219, 1)',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Min theo năm',
+                            data: data.yearly.map(d => d.min),
+                            borderColor: 'rgba(231, 76, 60, 0.5)',
+                            borderDash: [5, 5]
+                        },
+                        {
+                            label: 'Max theo năm',
+                            data: data.yearly.map(d => d.max),
+                            borderColor: 'rgba(46, 204, 113, 0.5)',
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {beginAtZero: false}
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+

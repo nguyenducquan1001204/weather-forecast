@@ -1982,6 +1982,357 @@ def admin_get_cities():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/statistics')
+def statistics():
+    return render_template('statistics.html')
+
+@app.route('/climate')
+def climate():
+    return render_template('climate.html')
+
+@app.route('/api/statistics/descriptive', methods=['POST'])
+def api_statistics_descriptive():
+    try:
+        data = request.json
+        city = data.get('city', 'vinh')
+        year_from = data.get('year_from', 2017)
+        year_to = data.get('year_to', 2025)
+        
+        df = load_data()
+        city_df = df[
+            (df['city'] == city) & 
+            (df['year'] >= year_from) & 
+            (df['year'] <= year_to)
+        ].copy()
+        
+        if len(city_df) == 0:
+            return jsonify({'error': f'No data found for {city} from {year_from} to {year_to}'}), 400
+        
+        numeric_cols = ['Temp', 'Rain', 'Cloud', 'Pressure', 'Wind', 'Gust']
+        result = {}
+        
+        for col in numeric_cols:
+            if col in city_df.columns:
+                values = city_df[col].dropna()
+                if len(values) > 0:
+                    result[col] = {
+                        'mean': float(values.mean()),
+                        'median': float(values.median()),
+                        'std': float(values.std()),
+                        'min': float(values.min()),
+                        'max': float(values.max()),
+                        'q25': float(values.quantile(0.25)),
+                        'q75': float(values.quantile(0.75)),
+                        'count': int(len(values))
+                    }
+        
+        return jsonify({
+            'city': city,
+            'year_from': year_from,
+            'year_to': year_to,
+            'statistics': result
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/statistics/distribution', methods=['POST'])
+def api_statistics_distribution():
+    try:
+        data = request.json
+        city = data.get('city', 'vinh')
+        metric = data.get('metric', 'Temp')
+        year_from = data.get('year_from', 2017)
+        year_to = data.get('year_to', 2025)
+        
+        df = load_data()
+        city_df = df[
+            (df['city'] == city) & 
+            (df['year'] >= year_from) & 
+            (df['year'] <= year_to)
+        ].copy()
+        
+        if len(city_df) == 0 or metric not in city_df.columns:
+            return jsonify({'error': f'No data found'}), 400
+        
+        values = city_df[metric].dropna()
+        if len(values) == 0:
+            return jsonify({'error': 'No valid values'}), 400
+        
+        min_val = float(values.min())
+        max_val = float(values.max())
+        bins = 20
+        bin_width = (max_val - min_val) / bins
+        
+        histogram = [0] * bins
+        for val in values:
+            bin_idx = min(int((val - min_val) / bin_width), bins - 1)
+            histogram[bin_idx] += 1
+        
+        bin_edges = [min_val + i * bin_width for i in range(bins + 1)]
+        bin_centers = [(bin_edges[i] + bin_edges[i+1]) / 2 for i in range(bins)]
+        
+        return jsonify({
+            'city': city,
+            'metric': metric,
+            'year_from': year_from,
+            'year_to': year_to,
+            'histogram': {
+                'bins': histogram,
+                'bin_centers': [float(x) for x in bin_centers],
+                'bin_edges': [float(x) for x in bin_edges]
+            },
+            'min': float(min_val),
+            'max': float(max_val)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/statistics/correlation', methods=['POST'])
+def api_statistics_correlation():
+    try:
+        data = request.json
+        city = data.get('city', 'vinh')
+        year_from = data.get('year_from', 2017)
+        year_to = data.get('year_to', 2025)
+        
+        df = load_data()
+        city_df = df[
+            (df['city'] == city) & 
+            (df['year'] >= year_from) & 
+            (df['year'] <= year_to)
+        ].copy()
+        
+        if len(city_df) == 0:
+            return jsonify({'error': f'No data found'}), 400
+        
+        numeric_cols = ['Temp', 'Rain', 'Cloud', 'Pressure', 'Wind', 'Gust']
+        available_cols = [col for col in numeric_cols if col in city_df.columns]
+        
+        correlation_matrix = city_df[available_cols].corr()
+        
+        result = {}
+        for i, col1 in enumerate(available_cols):
+            result[col1] = {}
+            for col2 in available_cols:
+                result[col1][col2] = float(correlation_matrix.loc[col1, col2])
+        
+        return jsonify({
+            'city': city,
+            'year_from': year_from,
+            'year_to': year_to,
+            'correlation': result
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/statistics/trend', methods=['POST'])
+def api_statistics_trend():
+    try:
+        data = request.json
+        city = data.get('city', 'vinh')
+        metric = data.get('metric', 'Temp')
+        year_from = data.get('year_from', 2017)
+        year_to = data.get('year_to', 2025)
+        
+        df = load_data()
+        city_df = df[
+            (df['city'] == city) & 
+            (df['year'] >= year_from) & 
+            (df['year'] <= year_to)
+        ].copy()
+        
+        if len(city_df) == 0 or metric not in city_df.columns:
+            return jsonify({'error': f'No data found'}), 400
+        
+        yearly_data = []
+        monthly_data = []
+        seasonal_data = []
+        
+        for year in sorted(city_df['year'].unique()):
+            year_df = city_df[city_df['year'] == year]
+            yearly_data.append({
+                'year': int(year),
+                'mean': float(year_df[metric].mean()),
+                'min': float(year_df[metric].min()),
+                'max': float(year_df[metric].max())
+            })
+        
+        for month in range(1, 13):
+            month_df = city_df[city_df['month'] == month]
+            if len(month_df) > 0:
+                monthly_data.append({
+                    'month': month,
+                    'mean': float(month_df[metric].mean()),
+                    'min': float(month_df[metric].min()),
+                    'max': float(month_df[metric].max())
+                })
+        
+        season_names = {0: 'Đông', 1: 'Xuân', 2: 'Hè', 3: 'Thu'}
+        for season in range(4):
+            season_df = city_df[city_df['season'] == season]
+            if len(season_df) > 0:
+                seasonal_data.append({
+                    'season': season,
+                    'season_name': season_names[season],
+                    'mean': float(season_df[metric].mean()),
+                    'min': float(season_df[metric].min()),
+                    'max': float(season_df[metric].max())
+                })
+        
+        return jsonify({
+            'city': city,
+            'metric': metric,
+            'year_from': year_from,
+            'year_to': year_to,
+            'yearly': yearly_data,
+            'monthly': monthly_data,
+            'seasonal': seasonal_data
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/climate/trend', methods=['POST'])
+def api_climate_trend():
+    try:
+        data = request.json
+        city = data.get('city', 'vinh')
+        metric = data.get('metric', 'Temp')
+        
+        df = load_data()
+        city_df = df[df['city'] == city].copy()
+        
+        if len(city_df) == 0 or metric not in city_df.columns:
+            return jsonify({'error': f'No data found'}), 400
+        
+        yearly_avg = []
+        for year in sorted(city_df['year'].unique()):
+            year_df = city_df[city_df['year'] == year]
+            yearly_avg.append({
+                'year': int(year),
+                'value': float(year_df[metric].mean())
+            })
+        
+        if len(yearly_avg) >= 2:
+            first_year = yearly_avg[0]['value']
+            last_year = yearly_avg[-1]['value']
+            total_change = last_year - first_year
+            years_span = yearly_avg[-1]['year'] - yearly_avg[0]['year']
+            annual_change = total_change / years_span if years_span > 0 else 0
+        else:
+            total_change = 0
+            annual_change = 0
+        
+        return jsonify({
+            'city': city,
+            'metric': metric,
+            'yearly_average': yearly_avg,
+            'total_change': float(total_change),
+            'annual_change': float(annual_change),
+            'first_year': int(yearly_avg[0]['year']) if yearly_avg else None,
+            'last_year': int(yearly_avg[-1]['year']) if yearly_avg else None
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/climate/seasonal', methods=['POST'])
+def api_climate_seasonal():
+    try:
+        data = request.json
+        city = data.get('city', 'vinh')
+        metric = data.get('metric', 'Temp')
+        
+        df = load_data()
+        city_df = df[df['city'] == city].copy()
+        
+        if len(city_df) == 0 or metric not in city_df.columns:
+            return jsonify({'error': f'No data found'}), 400
+        
+        season_names = {0: 'Đông', 1: 'Xuân', 2: 'Hè', 3: 'Thu'}
+        years = sorted(city_df['year'].unique())
+        
+        result = {}
+        for season in range(4):
+            season_name = season_names[season]
+            result[season_name] = []
+            
+            for year in years:
+                year_season_df = city_df[(city_df['year'] == year) & (city_df['season'] == season)]
+                if len(year_season_df) > 0:
+                    result[season_name].append({
+                        'year': int(year),
+                        'mean': float(year_season_df[metric].mean()),
+                        'min': float(year_season_df[metric].min()),
+                        'max': float(year_season_df[metric].max())
+                    })
+        
+        return jsonify({
+            'city': city,
+            'metric': metric,
+            'seasonal_data': result
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/climate/changes', methods=['POST'])
+def api_climate_changes():
+    try:
+        data = request.json
+        city = data.get('city', 'vinh')
+        period1_start = data.get('period1_start', 2017)
+        period1_end = data.get('period1_end', 2020)
+        period2_start = data.get('period2_start', 2021)
+        period2_end = data.get('period2_end', 2025)
+        
+        df = load_data()
+        city_df = df[df['city'] == city].copy()
+        
+        if len(city_df) == 0:
+            return jsonify({'error': f'No data found'}), 400
+        
+        numeric_cols = ['Temp', 'Rain', 'Cloud', 'Pressure', 'Wind', 'Gust']
+        result = {}
+        
+        for col in numeric_cols:
+            if col not in city_df.columns:
+                continue
+            
+            period1_df = city_df[
+                (city_df['year'] >= period1_start) & 
+                (city_df['year'] <= period1_end)
+            ]
+            period2_df = city_df[
+                (city_df['year'] >= period2_start) & 
+                (city_df['year'] <= period2_end)
+            ]
+            
+            if len(period1_df) > 0 and len(period2_df) > 0:
+                period1_mean = float(period1_df[col].mean())
+                period2_mean = float(period2_df[col].mean())
+                change = period2_mean - period1_mean
+                change_percent = (change / period1_mean * 100) if period1_mean != 0 else 0
+                
+                result[col] = {
+                    'period1': {
+                        'start': period1_start,
+                        'end': period1_end,
+                        'mean': period1_mean
+                    },
+                    'period2': {
+                        'start': period2_start,
+                        'end': period2_end,
+                        'mean': period2_mean
+                    },
+                    'change': float(change),
+                    'change_percent': float(change_percent)
+                }
+        
+        return jsonify({
+            'city': city,
+            'comparison': result
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     print("="*70)
     print("INITIALIZING WEATHER FORECASTING WEB APP")
