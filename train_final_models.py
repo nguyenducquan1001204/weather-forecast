@@ -31,9 +31,14 @@ def load_and_preprocess_data(file_path=None):
         if os.path.exists('weather.db'):
             df = load_data_from_db()
             if len(df) > 0:
-                print(f"  ✅ Loaded {len(df)} records from database")
-                print(f"  Date range: {df['datetime'].min()} to {df['datetime'].max()}")
-                return df
+                # Check if database has enough data for training (at least 1000 records)
+                if len(df) >= 1000:
+                    print(f"  ✅ Loaded {len(df)} records from database")
+                    print(f"  Date range: {df['datetime'].min()} to {df['datetime'].max()}")
+                    return df
+                else:
+                    print(f"  ⚠️  Database has only {len(df)} records (insufficient for training)")
+                    print("  ⚠️  Falling back to CSV for full dataset...")
         
         print("  ⚠️  Database not found or empty. Falling back to CSV...")
     except Exception as e:

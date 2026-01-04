@@ -42,6 +42,16 @@ jobs:
         echo "CHROME_BIN=$CHROME_BIN" >> $GITHUB_ENV
         echo "CHROMEDRIVER_PATH=$CHROMEDRIVER_PATH" >> $GITHUB_ENV
     
+    - name: Check if database exists
+      run: |
+        if [ -f weather.db ]; then
+          echo "Database exists, will use existing data"
+          python -c "from database import get_db_connection; conn = get_db_connection(); cursor = conn.cursor(); cursor.execute('SELECT COUNT(*) FROM weather_data'); print(f'Existing records: {cursor.fetchone()[0]}'); conn.close()"
+        else
+          echo "Database not found, will create new"
+        fi
+      continue-on-error: true
+    
     - name: Initialize database
       run: |
         python -c "from database import init_database; init_database()"
@@ -71,7 +81,7 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add weather.db weather_models_final.pkl || true
+        git add weather.db weather_models_final.pkl weather_all_cities.csv || true
         if git diff --staged --quiet; then
           echo "No changes to commit"
         else
