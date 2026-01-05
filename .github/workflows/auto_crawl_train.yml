@@ -2,9 +2,9 @@ name: Auto Crawl and Train
 
 on:
   schedule:
-    # Chạy mỗi ngày vào 3h sáng (UTC+7 = 20:00 UTC ngày hôm trước)
-    # Vì GitHub Actions dùng UTC, nên 3h sáng VN = 20:00 UTC
-    - cron: '0 20 * * *'
+    # Chạy mỗi ngày vào 5h sáng (UTC+7 = 22:00 UTC ngày hôm trước)
+    # Vì GitHub Actions dùng UTC, nên 5h sáng VN = 22:00 UTC
+    - cron: '0 22 * * *'
   workflow_dispatch: # Cho phép chạy thủ công
 
 jobs:
