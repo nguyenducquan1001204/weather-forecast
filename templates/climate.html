@@ -5,52 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Phân Tích Biến Đổi Khí Hậu - Weather Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='charts.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .climate-container {
-            padding: 20px;
-        }
-        .controls {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .controls-row {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            margin-bottom: 15px;
-        }
-        .control-group {
-            flex: 1;
-            min-width: 200px;
-        }
-        .control-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        .control-group select, .control-group input {
-            width: 100%;
-            padding: 8px;
-            border: 2px solid #3498db;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        .btn-load {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .btn-load:hover {
-            background: #2980b9;
+            padding: 0;
         }
         .section {
             background: white;
@@ -103,17 +62,6 @@
             background: #f8f9fa;
             font-weight: bold;
         }
-        .error {
-            background: #fee;
-            color: #c33;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 20px 0;
-        }
-        .loading {
-            text-align: center;
-            padding: 40px;
-        }
     </style>
 </head>
 <body>
@@ -131,6 +79,30 @@
                     </a>
                 </li>
                 <li class="sidebar-nav-item">
+                    <a href="/charts/year/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📊</span>
+                        <span>Biểu đồ năm (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/month/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📅</span>
+                        <span>Biểu đồ tháng (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/day/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📆</span>
+                        <span>Biểu đồ ngày (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/hour/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">⏰</span>
+                        <span>Biểu đồ giờ (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
                     <a href="/statistics" class="sidebar-nav-link">
                         <span class="sidebar-nav-icon">📊</span>
                         <span>Phân tích thống kê</span>
@@ -142,35 +114,76 @@
                         <span>Biến đổi khí hậu</span>
                     </a>
                 </li>
-                <li class="sidebar-nav-item">
-                    <a href="/accuracy" class="sidebar-nav-link">
-                        <span class="sidebar-nav-icon">📈</span>
-                        <span>Độ chính xác</span>
+                <li class="sidebar-nav-item has-submenu">
+                    <a href="#" class="sidebar-nav-link" onclick="toggleSubmenu(event, this)">
+                        <span class="sidebar-nav-icon">🧪</span>
+                        <span>Đánh giá dữ liệu</span>
                     </a>
+                    <ul class="sidebar-submenu">
+                        <li class="sidebar-submenu-item">
+                            <a href="/test" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">🧪</span>
+                                <span>Test dữ liệu</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/accuracy" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📊</span>
+                                <span>Độ chính xác</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/year" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📈</span>
+                                <span>Biểu đồ năm</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/month" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📅</span>
+                                <span>Biểu đồ tháng</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/day" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📆</span>
+                                <span>Biểu đồ ngày</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/hour" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">⏰</span>
+                                <span>Biểu đồ giờ</span>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
             </ul>
         </aside>
 
         <main class="main-content">
             <header class="top-header-bar">
-                <h1 class="header-title">Phân Tích Biến Đổi Khí Hậu</h1>
+                <div class="header-title-section">
+                    <h1 class="header-title">Phân Tích Biến Đổi Khí Hậu</h1>
+                    <p class="header-subtitle">Phân tích xu hướng dài hạn, so sánh mùa và đánh giá sự thay đổi khí hậu</p>
+                </div>
             </header>
 
             <div class="main-content-body">
                 <div class="climate-container">
-                    <div class="controls">
-                        <div class="controls-row">
-                            <div class="control-group">
-                                <label>Thành phố:</label>
-                                <select id="citySelect">
+                    <div class="charts-form-container">
+                        <div class="charts-form-row two-columns">
+                            <div class="charts-form-group">
+                                <label for="citySelect" class="charts-form-label">🏙️ Chọn Thành Phố</label>
+                                <select id="citySelect" class="charts-form-select">
                                     <option value="vinh">Vinh</option>
                                     <option value="ha-noi">Hà Nội</option>
                                     <option value="ho-chi-minh-city">Hồ Chí Minh</option>
                                 </select>
                             </div>
-                            <div class="control-group">
-                                <label>Biến số:</label>
-                                <select id="metricSelect">
+                            <div class="charts-form-group">
+                                <label for="metricSelect" class="charts-form-label">📊 Biến Số</label>
+                                <select id="metricSelect" class="charts-form-select">
                                     <option value="Temp">Nhiệt độ</option>
                                     <option value="Rain">Mưa</option>
                                     <option value="Cloud">Mây</option>
@@ -180,29 +193,32 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="controls-row">
-                            <div class="control-group">
-                                <label>Giai đoạn 1 - Từ năm:</label>
-                                <input type="number" id="period1Start" value="2017" min="2017" max="2025">
+                        <div class="charts-form-row four-columns">
+                            <div class="charts-form-group">
+                                <label for="period1Start" class="charts-form-label">📅 Giai Đoạn 1 - Từ Năm</label>
+                                <input type="number" id="period1Start" class="charts-form-input" value="2017" min="2017" max="2025">
                             </div>
-                            <div class="control-group">
-                                <label>Giai đoạn 1 - Đến năm:</label>
-                                <input type="number" id="period1End" value="2020" min="2017" max="2025">
+                            <div class="charts-form-group">
+                                <label for="period1End" class="charts-form-label">📅 Giai Đoạn 1 - Đến Năm</label>
+                                <input type="number" id="period1End" class="charts-form-input" value="2020" min="2017" max="2025">
                             </div>
-                            <div class="control-group">
-                                <label>Giai đoạn 2 - Từ năm:</label>
-                                <input type="number" id="period2Start" value="2021" min="2017" max="2025">
+                            <div class="charts-form-group">
+                                <label for="period2Start" class="charts-form-label">📅 Giai Đoạn 2 - Từ Năm</label>
+                                <input type="number" id="period2Start" class="charts-form-input" value="2021" min="2017" max="2025">
                             </div>
-                            <div class="control-group">
-                                <label>Giai đoạn 2 - Đến năm:</label>
-                                <input type="number" id="period2End" value="2025" min="2017" max="2025">
+                            <div class="charts-form-group">
+                                <label for="period2End" class="charts-form-label">📅 Giai Đoạn 2 - Đến Năm</label>
+                                <input type="number" id="period2End" class="charts-form-input" value="2025" min="2017" max="2025">
                             </div>
                         </div>
-                        <button class="btn-load" onclick="loadAllClimateData()">Tải dữ liệu</button>
+                        <button class="charts-btn-primary" onclick="loadAllClimateData()">📊 Tải Dữ Liệu</button>
                     </div>
 
-                    <div id="error" class="error" style="display: none;"></div>
-                    <div id="loading" class="loading" style="display: none;">Đang tải...</div>
+                    <div id="error" class="charts-error" style="display: none;"></div>
+                    <div id="loading" class="charts-loading" style="display: none;">
+                        <div class="charts-spinner"></div>
+                        <p>Đang tải dữ liệu...</p>
+                    </div>
 
                     <div id="results" style="display: none;">
                         <div class="section">
@@ -412,6 +428,27 @@
             html += '</tbody></table>';
             container.innerHTML = html;
         }
+
+        function toggleSubmenu(event, element) {
+            event.preventDefault();
+            const parent = element.closest('.sidebar-nav-item');
+            parent.classList.toggle('open');
+        }
+
+        function checkActiveSubmenu() {
+            const currentPath = window.location.pathname;
+            const submenuLinks = document.querySelectorAll('.sidebar-submenu-link');
+            submenuLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                    link.closest('.sidebar-nav-item.has-submenu').classList.add('open');
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkActiveSubmenu();
+        });
     </script>
 </body>
 </html>
