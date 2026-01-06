@@ -35,7 +35,7 @@ class WeatherCrawler:
         chrome_options.add_argument('--window-size=1920,1080')
         chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
-        # Support for Linux (GitHub Actions)
+        # Hỗ trợ cho Linux (GitHub Actions)
         if sys.platform == 'linux':
             chrome_options.binary_location = os.environ.get('CHROME_BIN', '/usr/bin/chromium-browser')
             chromedriver_path = os.environ.get('CHROMEDRIVER_PATH', '/usr/bin/chromedriver')
@@ -469,7 +469,7 @@ def main():
     
     # Sử dụng tên file cố định để có thể thêm dữ liệu mới (backup)
     output_file = "weather_all_cities.csv"
-    save_csv_backup = True  # Set to False to skip CSV backup
+    save_csv_backup = True  # Đặt thành False để bỏ qua CSV backup
     
     print(f"=== CRAWL DỮ LIỆU THỜI TIẾT ===")
     print(f"Khoảng thời gian: {start_date} -> {end_date}")
@@ -478,14 +478,14 @@ def main():
         print(f"CSV backup: {output_file}")
     print()
     
-    # Initialize database
+    # Khởi tạo database
     from database import init_database, get_db_connection, clean_weather_data, insert_data_to_db
     init_database()
     
     # Tập hợp các cặp (city, date) đã crawl từ database
     existing_city_dates = set()
     
-    # Check database for existing records
+    # Kiểm tra database cho các bản ghi đã tồn tại
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -573,18 +573,18 @@ def main():
         
         time.sleep(3)
     
-    # Process and save data
+    # Xử lý và lưu dữ liệu
     if new_records_count > 0:
         print(f"\n[Processing] Đang xử lý {new_records_count} bản ghi mới...")
         
-        # Convert to DataFrame
+        # Chuyển đổi sang DataFrame
         df_raw = pd.DataFrame(all_data)
         
-        # Clean data
+        # Làm sạch dữ liệu
         print("  -> Làm sạch dữ liệu...")
         df_cleaned = clean_weather_data(df_raw)
         
-        # Insert into database
+        # Chèn vào database
         print("  -> Lưu vào database...")
         inserted_count = insert_data_to_db(df_cleaned, batch_size=1000, skip_duplicates=True)
         
@@ -592,14 +592,14 @@ def main():
         print(f"Đã crawl: {new_records_count} bản ghi")
         print(f"Đã lưu vào database: {inserted_count} bản ghi (đã bỏ qua trùng lặp)")
         
-        # Save CSV backup if enabled
+        # Lưu CSV backup nếu được bật
         if save_csv_backup:
             try:
-                # Load existing CSV if exists
+                # Tải CSV hiện có nếu tồn tại
                 if os.path.exists(output_file):
                     df_existing = pd.read_csv(output_file, encoding='utf-8-sig')
                     df_csv = pd.concat([df_existing, df_raw], ignore_index=True)
-                    # Remove duplicates
+                    # Xóa các bản ghi trùng lặp
                     df_csv = df_csv.drop_duplicates(subset=['city', 'date', 'Time'], keep='last')
                 else:
                     df_csv = df_raw
@@ -609,7 +609,7 @@ def main():
             except Exception as e:
                 print(f"Cảnh báo: Không thể lưu CSV backup: {str(e)}")
         
-        # Show database stats
+        # Hiển thị thống kê database
         from database import get_data_count
         total_in_db = get_data_count()
         print(f"Tổng số bản ghi trong database: {total_in_db}")

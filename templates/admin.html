@@ -277,6 +277,126 @@
             margin-bottom: 20px;
         }
 
+        .cold-air-settings {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .cold-air-level-selector {
+            margin-bottom: 20px;
+        }
+
+        .level-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .level-option {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .level-option:hover {
+            background: #e8f4f8;
+            border-color: #667eea;
+        }
+
+        .level-option input[type="radio"] {
+            margin-right: 15px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .level-option input[type="radio"]:checked + .level-label {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .level-option:has(input[type="radio"]:checked) {
+            background: #e8f4f8;
+            border-color: #667eea;
+        }
+
+        .level-label {
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .level-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .level-desc {
+            font-size: 13px;
+            color: #7f8c8d;
+        }
+
+        .cold-air-info {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .cold-air-info h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .cold-air-info ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .cold-air-info li {
+            padding: 8px 0;
+            color: #555;
+            font-size: 15px;
+        }
+
+        .cold-air-info li::before {
+            content: "• ";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 8px;
+            font-size: 20px;
+        }
+
+        .level-details {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .detail-section {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .detail-section h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
         @media (max-width: 768px) {
             .sidebar {
                 width: 100%;
@@ -296,6 +416,7 @@
             <h1>Admin Panel</h1>
             <ul class="nav-menu">
                 <li><a href="#" class="active" onclick="showDashboard()">📊 Dashboard</a></li>
+                <li><a href="#" onclick="showColdAirSettings()">❄️ Không khí lạnh</a></li>
                 <li><a href="#" onclick="showTable('weather_data')">🌤️ Weather Data</a></li>
                 <li><a href="#" onclick="showTable('accuracy_results')">📈 Accuracy Results</a></li>
             </ul>
@@ -327,6 +448,44 @@
                 </div>
             </div>
 
+            <div id="cold-air-view" style="display: none;">
+                <div class="cold-air-settings">
+                    <div class="cold-air-level-selector">
+                        <label style="font-size: 18px; font-weight: 600; color: #2c3e50; display: block; margin-bottom: 15px;">Chọn mức độ không khí lạnh:</label>
+                        <div class="level-options">
+                            <div class="level-option" onclick="setColdAirLevel(0)">
+                                <input type="radio" name="cold-air-level" value="0" id="level-0">
+                                <label for="level-0" class="level-label">
+                                    <span class="level-name">Tắt</span>
+                                    <span class="level-desc">Không điều chỉnh</span>
+                                </label>
+                            </div>
+                            <div class="level-option" onclick="setColdAirLevel(1)">
+                                <input type="radio" name="cold-air-level" value="1" id="level-1">
+                                <label for="level-1" class="level-label">
+                                    <span class="level-name">Nhẹ</span>
+                                    <span class="level-desc">Hà Nội: -2°C | Vinh: đêm -2°C, ngày -1°C</span>
+                                </label>
+                            </div>
+                            <div class="level-option" onclick="setColdAirLevel(2)">
+                                <input type="radio" name="cold-air-level" value="2" id="level-2">
+                                <label for="level-2" class="level-label">
+                                    <span class="level-name">Trung bình</span>
+                                    <span class="level-desc">Hà Nội: -3°C | Vinh: đêm -2.5°C, ngày -1.5°C</span>
+                                </label>
+                            </div>
+                            <div class="level-option" onclick="setColdAirLevel(3)">
+                                <input type="radio" name="cold-air-level" value="3" id="level-3">
+                                <label for="level-3" class="level-label">
+                                    <span class="level-name">Mạnh</span>
+                                    <span class="level-desc">Hà Nội: -4 đến -7°C | Vinh: đêm -3 đến -5°C, ngày -2.5°C</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="cold-air-updated" style="color: #7f8c8d; font-size: 14px; margin-top: 15px;"></div>
+                </div>
+            </div>
             <div id="table-view" style="display: none;">
                 <div class="content-card">
                     <div class="filters">
@@ -480,25 +639,43 @@
             loadTableData();
         }
 
-        function showDashboard() {
+        function showDashboard(event) {
             document.getElementById('dashboard-view').style.display = 'block';
+            document.getElementById('cold-air-view').style.display = 'none';
             document.getElementById('table-view').style.display = 'none';
             document.getElementById('page-title').textContent = 'Dashboard';
             document.querySelectorAll('.nav-menu a').forEach(a => a.classList.remove('active'));
-            event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
             loadStats();
         }
 
-        function showTable(tableName) {
+        function showColdAirSettings(event) {
+            document.getElementById('dashboard-view').style.display = 'none';
+            document.getElementById('cold-air-view').style.display = 'block';
+            document.getElementById('table-view').style.display = 'none';
+            document.getElementById('page-title').textContent = 'Thiết lập Không khí lạnh';
+            document.querySelectorAll('.nav-menu a').forEach(a => a.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            loadColdAirSetting();
+        }
+
+        function showTable(tableName, event) {
             currentTable = tableName;
             currentPage = 1;
             
             document.getElementById('dashboard-view').style.display = 'none';
+            document.getElementById('cold-air-view').style.display = 'none';
             document.getElementById('table-view').style.display = 'block';
             document.getElementById('page-title').textContent = tableName === 'weather_data' ? 'Weather Data' : 'Accuracy Results';
             
             document.querySelectorAll('.nav-menu a').forEach(a => a.classList.remove('active'));
-            event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
 
             if (tableName === 'weather_data') {
                 document.getElementById('city-filter-group').style.display = 'block';
@@ -518,6 +695,53 @@
                 loadTableData();
             }
         });
+
+        function loadColdAirSetting() {
+            fetch('/admin/api/cold-air')
+                .then(response => response.json())
+                .then(data => {
+                    const level = data.level || 0;
+                    const radio = document.getElementById('level-' + level);
+                    if (radio) {
+                        radio.checked = true;
+                    }
+                    
+                    const updated = document.getElementById('cold-air-updated');
+                    if (data.updated_at) {
+                        const date = new Date(data.updated_at);
+                        updated.textContent = 'Cập nhật lần cuối: ' + date.toLocaleString('vi-VN');
+                    } else {
+                        updated.textContent = '';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading cold air setting:', error);
+                });
+        }
+
+        function setColdAirLevel(level) {
+            fetch('/admin/api/cold-air', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    level: level
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadColdAirSetting();
+                } else {
+                    alert('Lỗi khi cập nhật thiết lập: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error updating cold air setting:', error);
+                alert('Lỗi khi cập nhật thiết lập');
+            });
+        }
 
         loadStats();
         loadCities();

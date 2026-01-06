@@ -33,6 +33,39 @@ def init_database():
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    # Create cold_air_settings table
+    # level: 0=off, 1=nhẹ, 2=trung bình, 3=mạnh
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cold_air_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            level INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Migrate from old is_active column to level column if needed
+    try:
+        cursor.execute('PRAGMA table_info(cold_air_settings)')
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        if 'is_active' in columns and 'level' not in columns:
+            # Migrate: add level column and convert is_active to level
+            cursor.execute('ALTER TABLE cold_air_settings ADD COLUMN level INTEGER DEFAULT 0')
+            cursor.execute('UPDATE cold_air_settings SET level = is_active WHERE level = 0')
+        elif 'is_active' in columns and 'level' in columns:
+            # Both columns exist, migrate data
+            cursor.execute('UPDATE cold_air_settings SET level = is_active WHERE level = 0 AND is_active IS NOT NULL')
+    except:
+        pass
+    
+    # Insert default setting if not exists
+    cursor.execute('SELECT COUNT(*) FROM cold_air_settings')
+    if cursor.fetchone()[0] == 0:
+        cursor.execute('''
+            INSERT INTO cold_air_settings (level) VALUES (0)
+        ''')
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS weather_data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,7 +128,7 @@ def init_database():
     
     conn.commit()
     conn.close()
-    print("✅ Database schema initialized successfully!")
+    print("[OK] Database schema initialized successfully!")
 
 def load_data_from_db():
     """Load data from database and return as DataFrame (similar to original load_data function)"""

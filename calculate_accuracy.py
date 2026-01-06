@@ -15,11 +15,11 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 print("="*70)
-print("CALCULATING ACCURACY METRICS")
+print("TÍNH TOÁN CÁC CHỈ SỐ ĐỘ CHÍNH XÁC")
 print("="*70)
 
 def load_models():
-    """Load models từ file .pkl"""
+    """Tải models từ file .pkl"""
     model_file = 'weather_models_improved.pkl'
     if not os.path.exists(model_file):
         model_file = 'weather_models.pkl'
@@ -31,41 +31,41 @@ def load_models():
         return None, None
     
     try:
-        print(f"Loading models from {model_file}...")
+        print(f"Đang tải models từ {model_file}...")
         with open(model_file, 'rb') as f:
             models_data = pickle.load(f)
         
         models = models_data['models']
         feature_cols_dict = models_data['feature_cols']
         
-        print(f"✅ Đã load {len(models)} models thành công!")
+        print(f"✅ Đã tải {len(models)} models thành công!")
         return models, feature_cols_dict
     except Exception as e:
-        print(f"❌ Lỗi khi load models: {e}")
+        print(f"❌ Lỗi khi tải models: {e}")
         return None, None
 
 def load_data():
-    """Load data from SQLite database (fallback to CSV if database doesn't exist)"""
+    """Tải dữ liệu từ SQLite database (fallback về CSV nếu database không tồn tại)"""
     try:
         from database import load_data_from_db, init_database
         import os
         
         if not os.path.exists('weather.db'):
-            print("⚠️  Database not found. Falling back to CSV...")
+            print("⚠️  Không tìm thấy database. Đang fallback về CSV...")
             return load_data_from_csv()
         
         df = load_data_from_db()
         if len(df) == 0:
-            print("⚠️  Database is empty. Falling back to CSV...")
+            print("⚠️  Database trống. Đang fallback về CSV...")
             return load_data_from_csv()
         
         return df
     except Exception as e:
-        print(f"⚠️  Error loading from database: {e}. Falling back to CSV...")
+        print(f"⚠️  Lỗi khi tải từ database: {e}. Đang fallback về CSV...")
         return load_data_from_csv()
 
 def load_data_from_csv():
-    """Load data from CSV (fallback implementation)"""
+    """Tải dữ liệu từ CSV (implementation fallback)"""
     df = pd.read_csv('weather_all_cities.csv', encoding='utf-8-sig')
     df['datetime'] = pd.to_datetime(df['date'] + ' ' + df['Time'])
     df = df.sort_values(['city', 'datetime']).reset_index(drop=True)
@@ -110,7 +110,7 @@ def load_data_from_csv():
     return df
 
 def create_features_for_prediction(df, target_col='Temp'):
-    """Tạo advanced features cho dữ liệu cần predict"""
+    """Tạo advanced features cho dữ liệu cần dự đoán"""
     df = df.copy()
     df = df.sort_values(['city', 'datetime']).reset_index(drop=True)
     
@@ -158,12 +158,12 @@ def create_features_for_prediction(df, target_col='Temp'):
     return df
 
 def calculate_accuracy():
-    print("\n[1] Loading models...")
+    print("\n[1] Đang tải models...")
     models, feature_cols_dict = load_models()
     if models is None:
         return
     
-    print("\n[2] Loading data...")
+    print("\n[2] Đang tải dữ liệu...")
     df = load_data()
     
     test_start = '2023-01-01'
@@ -323,7 +323,7 @@ def calculate_accuracy():
             'calculated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
     
-    print("\n[4] Saving results to database...")
+    print("\n[4] Đang lưu kết quả vào database...")
     
     try:
         from database import save_accuracy_results
