@@ -1,0 +1,4 @@
+﻿city,city_key,date,source,crawled_at,Temp,Pressure,Wind,Rain,Cloud,raw_text
+Hà Nội,ha-noi,2026-01-06,thoitiet360,2026-01-06 22:57:05,14.0,1028.0,6.92,0.0,,Trang chủ Thời tiết các Tỉnh/TP Đông Bắc Bộ
+Vinh,vinh,2026-01-06,thoitiet360,2026-01-06 22:57:08,17.0,1024.0,6.04,1.89,,Trang chủ Thời tiết các Tỉnh/TP Đông Bắc Bộ
+Hồ Chí Minh,ho-chi-minh,2026-01-06,thoitiet360,2026-01-06 22:57:14,32.0,1013.0,4.66,2.51,,Trang chủ Thời tiết các Tỉnh/TP Đông Bắc Bộ

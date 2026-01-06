@@ -126,6 +126,27 @@ def init_database():
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_accuracy_city ON accuracy_results(city)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_accuracy_calculated_at ON accuracy_results(calculated_at)')
     
+    # Create table for thoitiet360 comparison data
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS thoitiet360_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            city TEXT NOT NULL,
+            date TEXT NOT NULL,
+            datetime TEXT NOT NULL,
+            Temp REAL,
+            Pressure REAL,
+            Wind REAL,
+            Rain REAL,
+            Cloud REAL,
+            Gust REAL,
+            crawled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(city, date)
+        )
+    ''')
+    
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_thoitiet360_city_date ON thoitiet360_data(city, date)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_thoitiet360_datetime ON thoitiet360_data(datetime)')
+    
     conn.commit()
     conn.close()
     print("[OK] Database schema initialized successfully!")

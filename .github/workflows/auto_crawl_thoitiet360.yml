@@ -1,0 +1,51 @@
+name: Auto Crawl Thoitiet360
+
+on:
+  schedule:
+    # Chạy mỗi ngày vào 9h sáng (UTC+7 = 2:00 UTC)
+    # Vì GitHub Actions dùng UTC, nên 9h sáng VN = 2:00 UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Cho phép chạy thủ công
+
+jobs:
+  crawl-thoitiet360:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Initialize database
+      run: |
+        python -c "from database import init_database; init_database()"
+      continue-on-error: true
+    
+    - name: Crawl thoitiet360 data
+      run: |
+        python crawl_thoitiet360.py
+      env:
+        TZ: Asia/Ho_Chi_Minh
+    
+    - name: Commit and push if changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add thoitiet360_data.csv || true
+        git diff --staged --quiet || (git commit -m "Auto update: Crawl thoitiet360 data $(date +'%Y-%m-%d')" && git push)
+      continue-on-error: true
+
