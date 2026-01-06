@@ -268,6 +268,9 @@
             document.getElementById('currentIcon').textContent = cityIcons[data.city] || '🌤️';
             
             const tempData = data.attributes.Temp;
+            if (!tempData || !tempData.predicted) {
+                throw new Error('Không có dữ liệu nhiệt độ');
+            }
             const avgTemp = tempData.predicted.reduce((a, b) => a + b, 0) / tempData.predicted.length;
             document.getElementById('currentTemp').textContent = `${avgTemp.toFixed(1)}°C`;
             
@@ -276,10 +279,10 @@
             const windData = data.attributes.Wind;
             const gustData = data.attributes.Gust;
             
-            const avgCloud = cloudData.predicted.reduce((a, b) => a + b, 0) / cloudData.predicted.length;
-            const avgPressure = pressureData.predicted.reduce((a, b) => a + b, 0) / pressureData.predicted.length;
-            const avgWind = windData.predicted.reduce((a, b) => a + b, 0) / windData.predicted.length;
-            const avgGust = gustData.predicted.reduce((a, b) => a + b, 0) / gustData.predicted.length;
+            const avgCloud = (cloudData && cloudData.predicted) ? cloudData.predicted.reduce((a, b) => a + b, 0) / cloudData.predicted.length : 0;
+            const avgPressure = (pressureData && pressureData.predicted) ? pressureData.predicted.reduce((a, b) => a + b, 0) / pressureData.predicted.length : 0;
+            const avgWind = (windData && windData.predicted) ? windData.predicted.reduce((a, b) => a + b, 0) / windData.predicted.length : 0;
+            const avgGust = (gustData && gustData.predicted) ? gustData.predicted.reduce((a, b) => a + b, 0) / gustData.predicted.length : 0;
             
             const statsContainer = document.getElementById('currentWeatherStats');
             statsContainer.innerHTML = `
@@ -348,15 +351,19 @@
             detailSection.style.display = 'block';
             
             const minMaxCards = document.getElementById('minMaxCards');
+            if (!data.min_max || !data.min_max.Temp) {
+                minMaxCards.innerHTML = '<p>Không có dữ liệu min/max</p>';
+                return;
+            }
             const tempMinMax = data.min_max.Temp;
             
             minMaxCards.innerHTML = `
                 <div class="min-max-card">
                     <h3>Nhiệt Độ Thấp Nhất</h3>
                     <div class="temp-display">${tempMinMax.actual_min.toFixed(1)}°C</div>
-                    <div class="temp-label">Thực tế</div>
+                    <div class="temp-label" style="font-size: 1.2em; font-weight: 600;">Thực tế</div>
                     <div class="temp-display" style="font-size: 2.5em;">${tempMinMax.predicted_min.toFixed(1)}°C</div>
-                    <div class="temp-label">Dự báo</div>
+                    <div class="temp-label" style="font-size: 1.2em; font-weight: 600;">Dự báo</div>
                     <div class="error-badge ${tempMinMax.min_error <= 2.0 ? 'error-ok' : 'error-bad'}">
                         Sai số: ${tempMinMax.min_error.toFixed(2)}°C ${tempMinMax.min_error <= 2.0 ? '✅ OK' : '❌ TỆ'}
                     </div>
@@ -364,9 +371,9 @@
                 <div class="min-max-card">
                     <h3>Nhiệt Độ Cao Nhất</h3>
                     <div class="temp-display">${tempMinMax.actual_max.toFixed(1)}°C</div>
-                    <div class="temp-label">Thực tế</div>
+                    <div class="temp-label" style="font-size: 1.2em; font-weight: 600;">Thực tế</div>
                     <div class="temp-display" style="font-size: 2.5em;">${tempMinMax.predicted_max.toFixed(1)}°C</div>
-                    <div class="temp-label">Dự báo</div>
+                    <div class="temp-label" style="font-size: 1.2em; font-weight: 600;">Dự báo</div>
                     <div class="error-badge ${tempMinMax.max_error <= 2.0 ? 'error-ok' : 'error-bad'}">
                         Sai số: ${tempMinMax.max_error.toFixed(2)}°C ${tempMinMax.max_error <= 2.0 ? '✅ OK' : '❌ TỆ'}
                     </div>
@@ -377,6 +384,10 @@
         function displayHourlyForecast(data) {
             const hourlyForecast = document.getElementById('hourlyForecast');
             const tempData = data.attributes.Temp;
+            if (!tempData || !tempData.predicted) {
+                hourlyForecast.innerHTML = '<p>Không có dữ liệu nhiệt độ</p>';
+                return;
+            }
             let html = '';
             
             for (let i = 0; i < data.hours.length; i++) {
@@ -410,36 +421,40 @@
 
         function displayHighlights(data) {
             const highlightsGrid = document.getElementById('highlightsGrid');
+            if (!data.min_max) {
+                highlightsGrid.innerHTML = '<p>Không có dữ liệu highlights</p>';
+                return;
+            }
             const highlights = [
                 {
                     title: 'Mưa',
                     icon: '🌧️',
-                    value: `${data.min_max.Rain.actual_max.toFixed(1)} mm`,
-                    status: data.min_max.Rain.actual_max > 5 ? 'heavy' : 'normal'
+                    value: data.min_max.Rain ? `${data.min_max.Rain.actual_max.toFixed(1)} mm` : 'N/A',
+                    status: (data.min_max.Rain && data.min_max.Rain.actual_max > 5) ? 'heavy' : 'normal'
                 },
                 {
                     title: 'Mây',
                     icon: '☁️',
-                    value: `${data.min_max.Cloud.actual_max.toFixed(0)}%`,
-                    status: data.min_max.Cloud.actual_max > 70 ? 'heavy' : 'normal'
+                    value: data.min_max.Cloud ? `${data.min_max.Cloud.actual_max.toFixed(0)}%` : 'N/A',
+                    status: (data.min_max.Cloud && data.min_max.Cloud.actual_max > 70) ? 'heavy' : 'normal'
                 },
                 {
                     title: 'Áp suất',
                     icon: '📊',
-                    value: `${data.min_max.Pressure.actual_max.toFixed(0)} mb`,
+                    value: data.min_max.Pressure ? `${data.min_max.Pressure.actual_max.toFixed(0)} mb` : 'N/A',
                     status: 'normal'
                 },
                 {
                     title: 'Gió',
                     icon: '💨',
-                    value: `${data.min_max.Wind.actual_max.toFixed(0)} km/h`,
-                    status: data.min_max.Wind.actual_max > 30 ? 'heavy' : 'normal'
+                    value: data.min_max.Wind ? `${data.min_max.Wind.actual_max.toFixed(0)} km/h` : 'N/A',
+                    status: (data.min_max.Wind && data.min_max.Wind.actual_max > 30) ? 'heavy' : 'normal'
                 },
                 {
                     title: 'Gió giật',
                     icon: '🌪️',
-                    value: `${data.min_max.Gust.actual_max.toFixed(0)} km/h`,
-                    status: data.min_max.Gust.actual_max > 40 ? 'heavy' : 'normal'
+                    value: data.min_max.Gust ? `${data.min_max.Gust.actual_max.toFixed(0)} km/h` : 'N/A',
+                    status: (data.min_max.Gust && data.min_max.Gust.actual_max > 40) ? 'heavy' : 'normal'
                 }
             ];
             
@@ -478,6 +493,10 @@
 
         function renderChart(data, attr) {
             const attrData = data.attributes[attr];
+            if (!attrData || !attrData.predicted || !attrData.actual || !attrData.error) {
+                document.getElementById('chartContainer').innerHTML = '<p>Không có dữ liệu cho ' + attr + '</p>';
+                return;
+            }
             const container = document.getElementById('chartContainer');
             
             const hours = data.hours;
