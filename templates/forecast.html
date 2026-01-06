@@ -196,6 +196,59 @@
             flex-wrap: wrap;
         }
         
+        .comparison-container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+        
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .comparison-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .comparison-table tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .comparison-value {
+            font-weight: 600;
+        }
+        
+        .comparison-diff {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .comparison-diff.positive {
+            color: #27ae60;
+        }
+        
+        .comparison-diff.negative {
+            color: #e74c3c;
+        }
+        
+        .comparison-source {
+            font-size: 0.85em;
+            color: #7f8c8d;
+            margin-top: 8px;
+        }
+        
         .temp-min-max-item {
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(10px);
@@ -372,6 +425,12 @@
                     </a>
                 </li>
                 <li class="sidebar-nav-item">
+                    <a href="/comparison-history" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📊</span>
+                        <span>Lịch sử so sánh</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
                     <a href="/statistics" class="sidebar-nav-link">
                         <span class="sidebar-nav-icon">📊</span>
                         <span>Phân tích thống kê</span>
@@ -490,6 +549,11 @@
 
                 </div>
 
+                <div class="forecast-section" id="comparisonSection" style="display: none; margin-bottom: 30px;">
+                    <h2 class="section-title">📊 So Sánh với thoitiet360.edu.vn</h2>
+                    <div id="comparisonContent" class="comparison-container"></div>
+                </div>
+
                 <div id="forecastGrid" class="forecast-grid"></div>
             </div>
         </main>
@@ -551,6 +615,13 @@
                     displayTodaySection(todayDay, city, cityNames);
                 } else {
                     document.getElementById('todaySection').style.display = 'none';
+                }
+                
+                // Hiển thị phần so sánh nếu có dữ liệu
+                if (data.comparison) {
+                    displayComparison(data.comparison, todayDay);
+                } else {
+                    document.getElementById('comparisonSection').style.display = 'none';
                 }
 
                 // Hiển thị 6 ngày còn lại
@@ -664,6 +735,102 @@
                     link.closest('.sidebar-nav-item.has-submenu').classList.add('open');
                 }
             });
+        }
+        
+        function displayComparison(comparisonData, todayDay) {
+            const comparisonSection = document.getElementById('comparisonSection');
+            const comparisonContent = document.getElementById('comparisonContent');
+            
+            if (!comparisonData || !todayDay) {
+                comparisonSection.style.display = 'none';
+                return;
+            }
+            
+            comparisonSection.style.display = 'block';
+            
+            let html = `
+                <div class="comparison-source">
+                    Dữ liệu từ ${comparisonData.source} - Ngày ${comparisonData.date}
+                    ${comparisonData.crawled_at ? ` (Crawl: ${new Date(comparisonData.crawled_at).toLocaleString('vi-VN')})` : ''}
+                </div>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Thông số</th>
+                            <th>Hệ thống dự đoán</th>
+                            <th>thoitiet360.edu.vn</th>
+                            <th>Chênh lệch</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            // Hiển thị nhiệt độ với min/max
+            const forecastTemp = todayDay.attributes.Temp?.avg;
+            const comparisonTemp = comparisonData.data.Temp;
+            const comparisonTempMin = comparisonData.data.Temp_min;
+            const comparisonTempMax = comparisonData.data.Temp_max;
+            
+            if (forecastTemp !== undefined && comparisonTemp !== null && comparisonTemp !== undefined) {
+                const diff = forecastTemp - comparisonTemp;
+                const diffClass = diff > 0 ? 'positive' : diff < 0 ? 'negative' : '';
+                const diffSign = diff > 0 ? '+' : '';
+                
+                let forecastDisplay = `${forecastTemp.toFixed(1)}°C`;
+                if (todayDay.attributes.Temp?.min !== undefined && todayDay.attributes.Temp?.max !== undefined) {
+                    forecastDisplay += ` (${todayDay.attributes.Temp.min.toFixed(1)}°C/${todayDay.attributes.Temp.max.toFixed(1)}°C)`;
+                }
+                
+                let comparisonDisplay = `${comparisonTemp.toFixed(1)}°C`;
+                if (comparisonTempMin !== null && comparisonTempMin !== undefined && 
+                    comparisonTempMax !== null && comparisonTempMax !== undefined) {
+                    comparisonDisplay += ` (${comparisonTempMin.toFixed(1)}°C/${comparisonTempMax.toFixed(1)}°C)`;
+                }
+                
+                html += `
+                    <tr>
+                        <td>🌡️ Nhiệt độ</td>
+                        <td class="comparison-value">${forecastDisplay}</td>
+                        <td class="comparison-value">${comparisonDisplay}</td>
+                        <td class="comparison-diff ${diffClass}">${diffSign}${diff.toFixed(1)}°C</td>
+                    </tr>
+                `;
+            }
+            
+            const params = [
+                { key: 'Pressure', label: '📊 Áp suất', unit: ' mb', forecastKey: 'Pressure' },
+                { key: 'Wind', label: '💨 Gió', unit: ' km/h', forecastKey: 'Wind' },
+                { key: 'Rain', label: '🌧️ Mưa', unit: ' mm', forecastKey: 'Rain' },
+                { key: 'Cloud', label: '☁️ Mây', unit: '%', forecastKey: 'Cloud' },
+                { key: 'Gust', label: '💨 Gió giật', unit: ' km/h', forecastKey: 'Gust' }
+            ];
+            
+            params.forEach(param => {
+                const forecastValue = todayDay.attributes[param.forecastKey]?.avg;
+                const comparisonValue = comparisonData.data[param.key];
+                
+                if (forecastValue !== undefined && comparisonValue !== null && comparisonValue !== undefined) {
+                    const diff = forecastValue - comparisonValue;
+                    const diffClass = diff > 0 ? 'positive' : diff < 0 ? 'negative' : '';
+                    const diffSign = diff > 0 ? '+' : '';
+                    
+                    html += `
+                        <tr>
+                            <td>${param.label}</td>
+                            <td class="comparison-value">${forecastValue.toFixed(1)}${param.unit}</td>
+                            <td class="comparison-value">${comparisonValue.toFixed(1)}${param.unit}</td>
+                            <td class="comparison-diff ${diffClass}">${diffSign}${diff.toFixed(1)}${param.unit}</td>
+                        </tr>
+                    `;
+                }
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            comparisonContent.innerHTML = html;
         }
 
         function displayTodaySection(day, city, cityNames) {

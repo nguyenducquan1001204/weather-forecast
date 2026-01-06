@@ -247,12 +247,38 @@ def crawl_thoitiet360(city_key='ha-noi'):
                     wind_matches = re.findall(r'(\d+\.?\d*)\s*km/h', text)
                     rain_matches = re.findall(r'(\d+\.?\d*)\s*mm', text)
                     
+                    # Tìm nhiệt độ thấp/cao (pattern: "14.8°/18.7°" hoặc "Thấp/Cao: 14.8°/18.7°")
+                    temp_min_max_pattern = re.findall(r'(\d+\.?\d*)\s*°\s*/\s*(\d+\.?\d*)\s*°', text)
+                    temp_min = None
+                    temp_max = None
+                    if temp_min_max_pattern:
+                        # Lấy cặp đầu tiên tìm được
+                        temp_min = temp_min_max_pattern[0][0]
+                        temp_max = temp_min_max_pattern[0][1]
+                    else:
+                        # Thử pattern khác: "Thấp/Cao: 14.8°/18.7°"
+                        temp_min_max_pattern2 = re.findall(r'Thấp[^:]*:\s*(\d+\.?\d*)\s*°[^/]*/\s*Cao[^:]*:\s*(\d+\.?\d*)\s*°', text, re.IGNORECASE)
+                        if temp_min_max_pattern2:
+                            temp_min = temp_min_max_pattern2[0][0]
+                            temp_max = temp_min_max_pattern2[0][1]
+                        else:
+                            # Thử tìm trong phần tử cha hoặc các phần tử liên quan
+                            parent = element.find_parent()
+                            if parent:
+                                parent_text = parent.get_text()
+                                temp_min_max_pattern3 = re.findall(r'(\d+\.?\d*)\s*°\s*/\s*(\d+\.?\d*)\s*°', parent_text)
+                                if temp_min_max_pattern3:
+                                    temp_min = temp_min_max_pattern3[0][0]
+                                    temp_max = temp_min_max_pattern3[0][1]
+                    
                     # Kiểm tra xem đã có ngày này chưa (tránh trùng lặp)
                     day_key = f"{main_temp}_{pressure_matches[0] if pressure_matches else 'none'}"
                     if day_key not in [d.get('key', '') for d in found_days]:
                         found_days.append({
                             'key': day_key,
                             'temp': main_temp,
+                            'temp_min': temp_min,
+                            'temp_max': temp_max,
                             'pressure': pressure_matches[0] if pressure_matches else None,
                             'wind': wind_matches[0] if wind_matches else None,
                             'rain': rain_matches[0] if rain_matches else None,
@@ -281,6 +307,8 @@ def crawl_thoitiet360(city_key='ha-noi'):
                 'source': 'thoitiet360',
                 'crawled_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'Temp': parse_temperature(day_data['temp']) if day_data['temp'] else None,
+                'Temp_min': parse_temperature(day_data.get('temp_min')) if day_data.get('temp_min') else None,
+                'Temp_max': parse_temperature(day_data.get('temp_max')) if day_data.get('temp_max') else None,
                 'Pressure': parse_pressure(day_data['pressure']) if day_data['pressure'] else None,
                 'Wind': parse_wind(day_data['wind']) if day_data['wind'] else None,
                 'Rain': parse_rain(day_data['rain']) if day_data['rain'] else None,
@@ -289,7 +317,10 @@ def crawl_thoitiet360(city_key='ha-noi'):
             }
             
             forecast_data.append(record)
-            print(f"   ✓ Ngày {forecast_date.strftime('%Y-%m-%d')}: Temp={record['Temp']}°C, Pressure={record['Pressure']}hPa, Wind={record['Wind']}km/h, Rain={record['Rain']}mm")
+            temp_info = f"Temp={record['Temp']}°C"
+            if record['Temp_min'] and record['Temp_max']:
+                temp_info += f" (Thấp/Cao: {record['Temp_min']}°C/{record['Temp_max']}°C)"
+            print(f"   ✓ Ngày {forecast_date.strftime('%Y-%m-%d')}: {temp_info}, Pressure={record['Pressure']}hPa, Wind={record['Wind']}km/h, Rain={record['Rain']}mm")
         
         # Nếu không parse được bằng cách trên, thử cách khác
         if not forecast_data:
@@ -332,7 +363,7 @@ def preprocess_thoitiet360_data(df):
         df['datetime'] = df['datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
     
     # 3. Đảm bảo các cột số là numeric
-    numeric_cols = ['Temp', 'Pressure', 'Wind', 'Rain', 'Cloud', 'Gust']
+    numeric_cols = ['Temp', 'Temp_min', 'Temp_max', 'Pressure', 'Wind', 'Rain', 'Cloud', 'Gust']
     for col in numeric_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -340,7 +371,7 @@ def preprocess_thoitiet360_data(df):
             df[col] = None
     
     # 4. Chỉ giữ lại các cột cần thiết để so sánh
-    columns_to_keep = ['city', 'date', 'datetime', 'Temp', 'Pressure', 'Wind', 'Rain', 'Cloud', 'Gust']
+    columns_to_keep = ['city', 'date', 'datetime', 'Temp', 'Temp_min', 'Temp_max', 'Pressure', 'Wind', 'Rain', 'Cloud', 'Gust']
     columns_to_keep = [col for col in columns_to_keep if col in df.columns]
     df = df[columns_to_keep]
     
@@ -402,11 +433,13 @@ def save_to_database(df):
                 # Update record đã tồn tại
                 cursor.execute('''
                     UPDATE thoitiet360_data 
-                    SET datetime = ?, Temp = ?, Pressure = ?, Wind = ?, Rain = ?, Cloud = ?, Gust = ?
+                    SET datetime = ?, Temp = ?, Temp_min = ?, Temp_max = ?, Pressure = ?, Wind = ?, Rain = ?, Cloud = ?, Gust = ?
                     WHERE city = ? AND date = ?
                 ''', (
                     row.get('datetime'),
                     row.get('Temp'),
+                    row.get('Temp_min'),
+                    row.get('Temp_max'),
                     row.get('Pressure'),
                     row.get('Wind'),
                     row.get('Rain'),
@@ -420,13 +453,15 @@ def save_to_database(df):
                 # Insert record mới
                 cursor.execute('''
                     INSERT INTO thoitiet360_data 
-                    (city, date, datetime, Temp, Pressure, Wind, Rain, Cloud, Gust)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (city, date, datetime, Temp, Temp_min, Temp_max, Pressure, Wind, Rain, Cloud, Gust)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     row['city'],
                     row['date'],
                     row.get('datetime'),
                     row.get('Temp'),
+                    row.get('Temp_min'),
+                    row.get('Temp_max'),
                     row.get('Pressure'),
                     row.get('Wind'),
                     row.get('Rain'),

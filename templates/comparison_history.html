@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch Sử So Sánh - thoitiet360.edu.vn</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .comparison-history-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 50px;
+        }
+        .comparison-history-header {
+            margin-bottom: 30px;
+        }
+        .comparison-history-title {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .filter-section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .filter-row {
+            display: flex;
+            gap: 20px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .filter-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .filter-group select,
+        .filter-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        .filter-group select:focus,
+        .filter-group input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .filter-button {
+            padding: 10px 24px;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+        }
+        .filter-button:hover {
+            background: linear-gradient(135deg, #2980b9 0%, #21618c 100%);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+            transform: translateY(-1px);
+        }
+        .history-table-container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1400px;
+        }
+        .history-table th,
+        .history-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .history-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #2c3e50;
+            position: sticky;
+            top: 0;
+        }
+        .history-table tr:hover {
+            background: #f9f9f9;
+        }
+        .history-table .city-cell {
+            font-weight: 600;
+        }
+        .history-table .date-cell {
+            color: #7f8c8d;
+        }
+        .history-table .positive {
+            color: #27ae60;
+            font-weight: 600;
+        }
+        .history-table .negative {
+            color: #e74c3c;
+            font-weight: 600;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="sidebar-logo-icon">🌤️</div>
+                <div class="sidebar-logo-text">Weather</div>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="sidebar-nav-item">
+                    <a href="/" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">🏠</span>
+                        <span>Trang chủ</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/comparison-history" class="sidebar-nav-link active">
+                        <span class="sidebar-nav-icon">📊</span>
+                        <span>Lịch sử so sánh</span>
+                    </a>
+                </li>
+            </ul>
+        </aside>
+
+        <main class="main-content">
+            <div class="comparison-history-container">
+                <div class="comparison-history-header">
+                    <h1 class="comparison-history-title">📊 Lịch Sử So Sánh với thoitiet360.edu.vn</h1>
+                </div>
+
+                <div class="filter-section">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>Thành phố</label>
+                            <select id="cityFilter">
+                                <option value="">Tất cả</option>
+                                <option value="ha-noi">Hà Nội</option>
+                                <option value="vinh">Vinh</option>
+                                <option value="ho-chi-minh-city">Hồ Chí Minh</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Năm</label>
+                            <select id="yearFilter">
+                                <option value="">Tất cả</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Tháng</label>
+                            <select id="monthFilter">
+                                <option value="">Tất cả</option>
+                                <option value="01">Tháng 1</option>
+                                <option value="02">Tháng 2</option>
+                                <option value="03">Tháng 3</option>
+                                <option value="04">Tháng 4</option>
+                                <option value="05">Tháng 5</option>
+                                <option value="06">Tháng 6</option>
+                                <option value="07">Tháng 7</option>
+                                <option value="08">Tháng 8</option>
+                                <option value="09">Tháng 9</option>
+                                <option value="10">Tháng 10</option>
+                                <option value="11">Tháng 11</option>
+                                <option value="12">Tháng 12</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Ngày</label>
+                            <select id="dayFilter">
+                                <option value="">Tất cả</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <button class="filter-button" onclick="loadHistory()">Tìm kiếm</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="history-table-container">
+                    <div id="loading" class="loading" style="display: none;">
+                        ⏳ Đang tải dữ liệu...
+                    </div>
+                    <div id="noData" class="no-data" style="display: none;">
+                        Không có dữ liệu
+                    </div>
+                    <table id="historyTable" class="history-table" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">Thành phố</th>
+                                <th rowspan="2">Ngày</th>
+                                <th colspan="3">Nhiệt độ (°C)</th>
+                                <th colspan="3">Áp suất (mb)</th>
+                                <th colspan="3">Gió (km/h)</th>
+                                <th colspan="3">Mưa (mm)</th>
+                                <th colspan="3">Mây (%)</th>
+                                <th colspan="3">Gió giật (km/h)</th>
+                                <th rowspan="2">Thời gian crawl</th>
+                            </tr>
+                            <tr>
+                                <th>Hệ thống</th>
+                                <th>thoitiet360</th>
+                                <th>Chênh lệch</th>
+                                <th>Hệ thống</th>
+                                <th>thoitiet360</th>
+                                <th>Chênh lệch</th>
+                                <th>Hệ thống</th>
+                                <th>thoitiet360</th>
+                                <th>Chênh lệch</th>
+                                <th>Hệ thống</th>
+                                <th>thoitiet360</th>
+                                <th>Chênh lệch</th>
+                                <th>Hệ thống</th>
+                                <th>thoitiet360</th>
+                                <th>Chênh lệch</th>
+                                <th>Hệ thống</th>
+                                <th>thoitiet360</th>
+                                <th>Chênh lệch</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const cityNames = {
+            'ha-noi': 'Hà Nội',
+            'vinh': 'Vinh',
+            'ho-chi-minh-city': 'Hồ Chí Minh'
+        };
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('vi-VN');
+        }
+
+        function formatDateTime(dateTimeStr) {
+            if (!dateTimeStr) return '';
+            const date = new Date(dateTimeStr);
+            return date.toLocaleString('vi-VN');
+        }
+
+        function updateDayOptions() {
+            const year = document.getElementById('yearFilter').value;
+            const month = document.getElementById('monthFilter').value;
+            const dayFilter = document.getElementById('dayFilter');
+            
+            // Xóa các option cũ (trừ "Tất cả")
+            dayFilter.innerHTML = '<option value="">Tất cả</option>';
+            
+            if (year && month) {
+                // Tính số ngày trong tháng
+                const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+                
+                // Thêm các ngày
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const option = document.createElement('option');
+                    option.value = day.toString().padStart(2, '0');
+                    option.textContent = day;
+                    dayFilter.appendChild(option);
+                }
+            }
+        }
+
+        function loadHistory() {
+            const city = document.getElementById('cityFilter').value;
+            const year = document.getElementById('yearFilter').value;
+            const month = document.getElementById('monthFilter').value;
+            const day = document.getElementById('dayFilter').value;
+
+            const loading = document.getElementById('loading');
+            const noData = document.getElementById('noData');
+            const historyTable = document.getElementById('historyTable');
+            const historyTableBody = document.getElementById('historyTableBody');
+
+            loading.style.display = 'block';
+            noData.style.display = 'none';
+            historyTable.style.display = 'none';
+
+            // Tạo date string nếu có đủ thông tin
+            let dateFilter = '';
+            if (year && month && day) {
+                dateFilter = `${year}-${month}-${day}`;
+            } else if (year && month) {
+                // Nếu chỉ có năm và tháng, lấy tất cả ngày trong tháng
+                dateFilter = `${year}-${month}`;
+            } else if (year) {
+                // Nếu chỉ có năm, lấy tất cả ngày trong năm
+                dateFilter = `${year}`;
+            }
+
+            fetch('/api/comparison-history', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    city: city,
+                    date: dateFilter  // Gửi date cụ thể thay vì date_from và date_to
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = 'none';
+
+                if (!data.success) {
+                    alert('Lỗi: ' + (data.error || 'Không thể tải dữ liệu'));
+                    return;
+                }
+
+                if (data.count === 0) {
+                    noData.style.display = 'block';
+                    return;
+                }
+
+                historyTableBody.innerHTML = '';
+                data.data.forEach(row => {
+                    const system = row.system_forecast || {};
+                    const thoitiet360 = row.thoitiet360 || {};
+                    const diff = row.difference || {};
+                    
+                    const formatValue = (val) => val !== null && val !== undefined ? val.toFixed(1) : '-';
+                    const formatDiff = (val) => {
+                        if (val === null || val === undefined) return '-';
+                        const sign = val > 0 ? '+' : '';
+                        const className = val > 0 ? 'positive' : val < 0 ? 'negative' : '';
+                        return `<span class="${className}">${sign}${val.toFixed(1)}</span>`;
+                    };
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="city-cell">${cityNames[row.city] || row.city}</td>
+                        <td class="date-cell">${formatDate(row.date)}</td>
+                        <td>${formatValue(system.Temp)}</td>
+                        <td>${formatValue(thoitiet360.Temp)}</td>
+                        <td>${formatDiff(diff.Temp)}</td>
+                        <td>${formatValue(system.Pressure)}</td>
+                        <td>${formatValue(thoitiet360.Pressure)}</td>
+                        <td>${formatDiff(diff.Pressure)}</td>
+                        <td>${formatValue(system.Wind)}</td>
+                        <td>${formatValue(thoitiet360.Wind)}</td>
+                        <td>${formatDiff(diff.Wind)}</td>
+                        <td>${formatValue(system.Rain)}</td>
+                        <td>${formatValue(thoitiet360.Rain)}</td>
+                        <td>${formatDiff(diff.Rain)}</td>
+                        <td>${formatValue(system.Cloud)}</td>
+                        <td>${formatValue(thoitiet360.Cloud)}</td>
+                        <td>${formatDiff(diff.Cloud)}</td>
+                        <td>${formatValue(system.Gust)}</td>
+                        <td>${formatValue(thoitiet360.Gust)}</td>
+                        <td>${formatDiff(diff.Gust)}</td>
+                        <td>${formatDateTime(row.crawled_at)}</td>
+                    `;
+                    historyTableBody.appendChild(tr);
+                });
+
+                historyTable.style.display = 'table';
+            })
+            .catch(error => {
+                loading.style.display = 'none';
+                alert('Lỗi: ' + error.message);
+            });
+        }
+
+        // Tự động load khi trang được mở
+        window.onload = function() {
+            // Lấy danh sách năm có dữ liệu
+            fetch('/api/comparison-history', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data.length > 0) {
+                    // Lấy các năm unique từ dữ liệu
+                    const years = [...new Set(data.data.map(item => item.date.split('-')[0]))].sort((a, b) => b - a);
+                    const yearFilter = document.getElementById('yearFilter');
+                    
+                    years.forEach(year => {
+                        const option = document.createElement('option');
+                        option.value = year;
+                        option.textContent = year;
+                        yearFilter.appendChild(option);
+                    });
+                    
+                    // Set năm hiện tại làm mặc định
+                    const currentYear = new Date().getFullYear().toString();
+                    if (years.includes(currentYear)) {
+                        yearFilter.value = currentYear;
+                    } else if (years.length > 0) {
+                        yearFilter.value = years[0];
+                    }
+                    
+                    // Set tháng hiện tại làm mặc định
+                    const currentMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
+                    document.getElementById('monthFilter').value = currentMonth;
+                    
+                    // Cập nhật danh sách ngày
+                    updateDayOptions();
+                    
+                    // Set ngày hiện tại làm mặc định
+                    const currentDay = new Date().getDate().toString().padStart(2, '0');
+                    document.getElementById('dayFilter').value = currentDay;
+                }
+                
+                loadHistory();
+            });
+            
+            // Cập nhật danh sách ngày khi thay đổi năm hoặc tháng
+            document.getElementById('yearFilter').addEventListener('change', updateDayOptions);
+            document.getElementById('monthFilter').addEventListener('change', updateDayOptions);
+        };
+    </script>
+</body>
+</html>
+

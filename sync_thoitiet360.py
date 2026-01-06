@@ -67,16 +67,12 @@ def check_and_pull():
                 
                 # Cập nhật database nếu có file CSV mới
                 try:
-                    from database import init_database, get_db_connection
-                    import pandas as pd
-                    
                     csv_file = os.path.join(SCRIPT_DIR, 'thoitiet360_data.csv')
                     if os.path.exists(csv_file):
-                        print(f"  💾 Đang cập nhật database từ CSV...")
-                        df = pd.read_csv(csv_file)
-                        from crawl_thoitiet360 import preprocess_thoitiet360_data, save_to_database
-                        df_processed = preprocess_thoitiet360_data(df)
-                        save_to_database(df_processed)
+                        print(f"  💾 Đang import dữ liệu từ CSV vào database...")
+                        # Sử dụng script import riêng
+                        import import_thoitiet360_to_db
+                        import_thoitiet360_to_db.import_csv_to_database()
                 except Exception as e:
                     print(f"  ⚠️  Không thể cập nhật database: {str(e)[:100]}")
                 

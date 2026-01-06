@@ -1933,6 +1933,65 @@ def api_forecast():
                 # Tạo lại features sau khi thêm dữ liệu mới
                 available_data = create_features_for_prediction(available_data, 'Temp')
         
+        # Lưu dự đoán vào database cho ngày đầu tiên (hôm nay)
+        try:
+            from database import get_db_connection
+            today_forecast = result['forecast'][0] if len(result['forecast']) > 0 and result['forecast'][0]['is_today'] else None
+            if today_forecast:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                # Tính trung bình các giá trị dự đoán
+                forecast_avg = {}
+                for attr_name, attr_data in today_forecast['attributes'].items():
+                    if 'avg' in attr_data:
+                        forecast_avg[attr_name] = attr_data['avg']
+                
+                # Lưu hoặc cập nhật vào database
+                cursor.execute('''
+                    INSERT OR REPLACE INTO system_forecasts 
+                    (city, date, Temp, Pressure, Wind, Rain, Cloud, Gust)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    city,
+                    today.strftime('%Y-%m-%d'),
+                    forecast_avg.get('Temp'),
+                    forecast_avg.get('Pressure'),
+                    forecast_avg.get('Wind'),
+                    forecast_avg.get('Rain'),
+                    forecast_avg.get('Cloud'),
+                    forecast_avg.get('Gust')
+                ))
+                conn.commit()
+                conn.close()
+        except Exception as e:
+            # Nếu có lỗi khi lưu, bỏ qua
+            pass
+        
+        # Thêm dữ liệu so sánh từ thoitiet360.edu.vn cho ngày hôm nay
+        try:
+            from database import get_thoitiet360_data
+            thoitiet360_data = get_thoitiet360_data(city, today.strftime('%Y-%m-%d'))
+            if thoitiet360_data:
+                result['comparison'] = {
+                    'source': 'thoitiet360.edu.vn',
+                    'date': thoitiet360_data['date'],
+                    'crawled_at': thoitiet360_data['crawled_at'],
+                    'data': {
+                        'Temp': thoitiet360_data.get('Temp'),
+                        'Temp_min': thoitiet360_data.get('Temp_min'),
+                        'Temp_max': thoitiet360_data.get('Temp_max'),
+                        'Pressure': thoitiet360_data.get('Pressure'),
+                        'Wind': thoitiet360_data.get('Wind'),
+                        'Rain': thoitiet360_data.get('Rain'),
+                        'Cloud': thoitiet360_data.get('Cloud'),
+                        'Gust': thoitiet360_data.get('Gust')
+                    }
+                }
+        except Exception as e:
+            # Nếu có lỗi khi lấy dữ liệu so sánh, bỏ qua
+            pass
+        
         return jsonify(result)
     
     except Exception as e:
@@ -1942,6 +2001,123 @@ def api_forecast():
         print(f"❌ Lỗi trong api_forecast: {error_msg}")
         print(f"Traceback: {error_traceback}")
         return jsonify({'error': error_msg, 'traceback': error_traceback}), 500
+
+@app.route('/comparison-history')
+def comparison_history():
+    """Trang xem lịch sử so sánh với thoitiet360.edu.vn"""
+    return render_template('comparison_history.html')
+
+@app.route('/api/comparison-history', methods=['POST'])
+def api_comparison_history():
+    """API lấy dữ liệu lịch sử so sánh - bao gồm cả dự đoán hệ thống và thoitiet360"""
+    try:
+        from database import get_db_connection
+        import pandas as pd
+        
+        data = request.json
+        city = data.get('city', '')
+        date_filter = data.get('date', '')  # Format: YYYY-MM-DD hoặc YYYY-MM hoặc YYYY
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Lấy dữ liệu từ thoitiet360_data
+        query = '''
+            SELECT city, date, datetime, Temp, Temp_min, Temp_max, Pressure, Wind, Rain, Cloud, Gust, crawled_at
+            FROM thoitiet360_data
+            WHERE 1=1
+        '''
+        params = []
+        
+        if city:
+            query += ' AND city = ?'
+            params.append(city)
+        
+        if date_filter:
+            if len(date_filter) == 10:  # YYYY-MM-DD - ngày cụ thể
+                query += ' AND date = ?'
+                params.append(date_filter)
+            elif len(date_filter) == 7:  # YYYY-MM - tháng
+                query += ' AND date LIKE ?'
+                params.append(date_filter + '%')
+            elif len(date_filter) == 4:  # YYYY - năm
+                query += ' AND date LIKE ?'
+                params.append(date_filter + '%')
+        
+        query += ' ORDER BY date DESC, city'
+        
+        cursor.execute(query, params)
+        thoitiet360_rows = cursor.fetchall()
+        
+        # Lấy dự liệu dự đoán từ database (đã lưu sẵn)
+        history = []
+        for row in thoitiet360_rows:
+            city_name = row[0]
+            date_str = row[1]
+            
+            # Lấy dự đoán từ database
+            cursor.execute('''
+                SELECT Temp, Pressure, Wind, Rain, Cloud, Gust
+                FROM system_forecasts
+                WHERE city = ? AND date = ?
+            ''', (city_name, date_str))
+            
+            forecast_row = cursor.fetchone()
+            system_forecast = {}
+            if forecast_row:
+                system_forecast = {
+                    'Temp': forecast_row[0],
+                    'Pressure': forecast_row[1],
+                    'Wind': forecast_row[2],
+                    'Rain': forecast_row[3],
+                    'Cloud': forecast_row[4],
+                    'Gust': forecast_row[5]
+                }
+            
+            # Dữ liệu từ thoitiet360 (row có 12 cột: city, date, datetime, Temp, Temp_min, Temp_max, Pressure, Wind, Rain, Cloud, Gust, crawled_at)
+            thoitiet360_data = {
+                'Temp': row[3],
+                'Temp_min': row[4] if len(row) > 4 else None,
+                'Temp_max': row[5] if len(row) > 5 else None,
+                'Pressure': row[6] if len(row) > 6 else None,
+                'Wind': row[7] if len(row) > 7 else None,
+                'Rain': row[8] if len(row) > 8 else None,
+                'Cloud': row[9] if len(row) > 9 else None,
+                'Gust': row[10] if len(row) > 10 else None
+            }
+            
+            history.append({
+                'city': city_name,
+                'date': date_str,
+                'datetime': row[2],
+                'crawled_at': row[11] if len(row) > 11 else (row[9] if len(row) > 9 else None),
+                'system_forecast': system_forecast,  # Dữ liệu dự đoán từ hệ thống (đã lưu trong database)
+                'thoitiet360': thoitiet360_data,  # Dữ liệu từ thoitiet360.edu.vn
+                'difference': {  # Chênh lệch
+                    'Temp': (system_forecast.get('Temp') - thoitiet360_data['Temp']) if system_forecast.get('Temp') is not None and thoitiet360_data['Temp'] is not None else None,
+                    'Pressure': (system_forecast.get('Pressure') - thoitiet360_data['Pressure']) if system_forecast.get('Pressure') is not None and thoitiet360_data['Pressure'] is not None else None,
+                    'Wind': (system_forecast.get('Wind') - thoitiet360_data['Wind']) if system_forecast.get('Wind') is not None and thoitiet360_data['Wind'] is not None else None,
+                    'Rain': (system_forecast.get('Rain') - thoitiet360_data['Rain']) if system_forecast.get('Rain') is not None and thoitiet360_data['Rain'] is not None else None,
+                    'Cloud': (system_forecast.get('Cloud') - thoitiet360_data['Cloud']) if system_forecast.get('Cloud') is not None and thoitiet360_data['Cloud'] is not None else None,
+                    'Gust': (system_forecast.get('Gust') - thoitiet360_data['Gust']) if system_forecast.get('Gust') is not None and thoitiet360_data['Gust'] is not None else None
+                }
+            })
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': history,
+            'count': len(history)
+        })
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 @app.route('/admin')
 def admin():

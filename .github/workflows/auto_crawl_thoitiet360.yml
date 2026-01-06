@@ -30,10 +30,19 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
+    - name: Check if database exists
+      run: |
+        if [ -f weather.db ]; then
+          echo "Database exists, will use existing data"
+          python -c "from database import get_db_connection; conn = get_db_connection(); cursor = conn.cursor(); cursor.execute('SELECT COUNT(*) FROM thoitiet360_data'); print(f'Existing thoitiet360 records: {cursor.fetchone()[0]}'); conn.close()"
+        else
+          echo "Database not found, will create new"
+        fi
+      continue-on-error: true
+    
     - name: Initialize database
       run: |
         python -c "from database import init_database; init_database()"
-      continue-on-error: true
     
     - name: Crawl thoitiet360 data
       run: |
@@ -41,11 +50,16 @@ jobs:
       env:
         TZ: Asia/Ho_Chi_Minh
     
-    - name: Commit and push if changes
+    - name: Commit and push database and CSV
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add thoitiet360_data.csv || true
-        git diff --staged --quiet || (git commit -m "Auto update: Crawl thoitiet360 data $(date +'%Y-%m-%d')" && git push)
+        git add weather.db thoitiet360_data.csv || true
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Auto update: Crawl thoitiet360 data $(date +'%Y-%m-%d %H:%M:%S')" || exit 0
+          git push origin HEAD:main || git push origin HEAD:master || exit 0
+        fi
       continue-on-error: true
 

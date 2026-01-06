@@ -134,6 +134,8 @@ def init_database():
             date TEXT NOT NULL,
             datetime TEXT NOT NULL,
             Temp REAL,
+            Temp_min REAL,
+            Temp_max REAL,
             Pressure REAL,
             Wind REAL,
             Rain REAL,
@@ -144,8 +146,38 @@ def init_database():
         )
     ''')
     
+    # Thêm cột Temp_min và Temp_max nếu chưa có (migration)
+    try:
+        cursor.execute('ALTER TABLE thoitiet360_data ADD COLUMN Temp_min REAL')
+    except:
+        pass  # Cột đã tồn tại
+    
+    try:
+        cursor.execute('ALTER TABLE thoitiet360_data ADD COLUMN Temp_max REAL')
+    except:
+        pass  # Cột đã tồn tại
+    
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_thoitiet360_city_date ON thoitiet360_data(city, date)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_thoitiet360_datetime ON thoitiet360_data(datetime)')
+    
+    # Create table for system forecasts (để so sánh với thoitiet360)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS system_forecasts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            city TEXT NOT NULL,
+            date TEXT NOT NULL,
+            Temp REAL,
+            Pressure REAL,
+            Wind REAL,
+            Rain REAL,
+            Cloud REAL,
+            Gust REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(city, date)
+        )
+    ''')
+    
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_forecasts_city_date ON system_forecasts(city, date)')
     
     conn.commit()
     conn.close()
@@ -445,4 +477,50 @@ def get_latest_accuracy_results():
             }
     
     return result
+
+def get_thoitiet360_data(city, date=None):
+    """
+    Lấy dữ liệu từ thoitiet360.edu.vn để so sánh
+    Args:
+        city: Tên thành phố (vinh, ha-noi, ho-chi-minh-city)
+        date: Ngày cần lấy (YYYY-MM-DD), nếu None thì lấy ngày mới nhất
+    Returns:
+        Dict chứa dữ liệu hoặc None nếu không tìm thấy
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    if date:
+        cursor.execute('''
+            SELECT * FROM thoitiet360_data
+            WHERE city = ? AND date = ?
+            ORDER BY crawled_at DESC
+            LIMIT 1
+        ''', (city, date))
+    else:
+        cursor.execute('''
+            SELECT * FROM thoitiet360_data
+            WHERE city = ?
+            ORDER BY date DESC, crawled_at DESC
+            LIMIT 1
+        ''', (city,))
+    
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        return {
+            'city': row['city'],
+            'date': row['date'],
+            'Temp': row['Temp'],
+            'Temp_min': row.get('Temp_min') if 'Temp_min' in row.keys() else None,
+            'Temp_max': row.get('Temp_max') if 'Temp_max' in row.keys() else None,
+            'Pressure': row['Pressure'],
+            'Wind': row['Wind'],
+            'Rain': row['Rain'],
+            'Cloud': row['Cloud'],
+            'Gust': row['Gust'],
+            'crawled_at': row['crawled_at']
+        }
+    return None
 
