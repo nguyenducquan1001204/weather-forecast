@@ -1950,12 +1950,14 @@ def api_forecast():
                 # Lưu hoặc cập nhật vào database
                 cursor.execute('''
                     INSERT OR REPLACE INTO system_forecasts 
-                    (city, date, Temp, Pressure, Wind, Rain, Cloud, Gust)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (city, date, Temp, Temp_min, Temp_max, Pressure, Wind, Rain, Cloud, Gust)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     city,
                     today.strftime('%Y-%m-%d'),
                     forecast_avg.get('Temp'),
+                    today_forecast['attributes'].get('Temp', {}).get('min'),
+                    today_forecast['attributes'].get('Temp', {}).get('max'),
                     forecast_avg.get('Pressure'),
                     forecast_avg.get('Wind'),
                     forecast_avg.get('Rain'),
@@ -1976,7 +1978,7 @@ def api_forecast():
                 result['comparison'] = {
                     'source': 'thoitiet360.edu.vn',
                     'date': thoitiet360_data['date'],
-                    'crawled_at': thoitiet360_data['crawled_at'],
+                    'crawled_at': thoitiet360_data.get('crawled_at'),
                     'data': {
                         'Temp': thoitiet360_data.get('Temp'),
                         'Temp_min': thoitiet360_data.get('Temp_min'),
@@ -1989,8 +1991,10 @@ def api_forecast():
                     }
                 }
         except Exception as e:
-            # Nếu có lỗi khi lấy dữ liệu so sánh, bỏ qua
-            pass
+            # Log lỗi để debug
+            import traceback
+            print(f"⚠️  Lỗi khi lấy dữ liệu so sánh: {str(e)}")
+            traceback.print_exc()
         
         return jsonify(result)
     
@@ -2057,7 +2061,7 @@ def api_comparison_history():
             
             # Lấy dự đoán từ database
             cursor.execute('''
-                SELECT Temp, Pressure, Wind, Rain, Cloud, Gust
+                SELECT Temp, Temp_min, Temp_max, Pressure, Wind, Rain, Cloud, Gust
                 FROM system_forecasts
                 WHERE city = ? AND date = ?
             ''', (city_name, date_str))
@@ -2067,11 +2071,13 @@ def api_comparison_history():
             if forecast_row:
                 system_forecast = {
                     'Temp': forecast_row[0],
-                    'Pressure': forecast_row[1],
-                    'Wind': forecast_row[2],
-                    'Rain': forecast_row[3],
-                    'Cloud': forecast_row[4],
-                    'Gust': forecast_row[5]
+                    'Temp_min': forecast_row[1],
+                    'Temp_max': forecast_row[2],
+                    'Pressure': forecast_row[3],
+                    'Wind': forecast_row[4],
+                    'Rain': forecast_row[5],
+                    'Cloud': forecast_row[6],
+                    'Gust': forecast_row[7]
                 }
             
             # Dữ liệu từ thoitiet360 (row có 12 cột: city, date, datetime, Temp, Temp_min, Temp_max, Pressure, Wind, Rain, Cloud, Gust, crawled_at)
@@ -2095,6 +2101,8 @@ def api_comparison_history():
                 'thoitiet360': thoitiet360_data,  # Dữ liệu từ thoitiet360.edu.vn
                 'difference': {  # Chênh lệch
                     'Temp': (system_forecast.get('Temp') - thoitiet360_data['Temp']) if system_forecast.get('Temp') is not None and thoitiet360_data['Temp'] is not None else None,
+                    'Temp_min': (system_forecast.get('Temp_min') - thoitiet360_data['Temp_min']) if system_forecast.get('Temp_min') is not None and thoitiet360_data['Temp_min'] is not None else None,
+                    'Temp_max': (system_forecast.get('Temp_max') - thoitiet360_data['Temp_max']) if system_forecast.get('Temp_max') is not None and thoitiet360_data['Temp_max'] is not None else None,
                     'Pressure': (system_forecast.get('Pressure') - thoitiet360_data['Pressure']) if system_forecast.get('Pressure') is not None and thoitiet360_data['Pressure'] is not None else None,
                     'Wind': (system_forecast.get('Wind') - thoitiet360_data['Wind']) if system_forecast.get('Wind') is not None and thoitiet360_data['Wind'] is not None else None,
                     'Rain': (system_forecast.get('Rain') - thoitiet360_data['Rain']) if system_forecast.get('Rain') is not None and thoitiet360_data['Rain'] is not None else None,

@@ -84,7 +84,7 @@
         .history-table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 1400px;
+            min-width: 1600px;
         }
         .history-table th,
         .history-table td {
@@ -216,7 +216,7 @@
                             <tr>
                                 <th rowspan="2">Thành phố</th>
                                 <th rowspan="2">Ngày</th>
-                                <th colspan="3">Nhiệt độ (°C)</th>
+                                <th colspan="5">Nhiệt độ (°C)</th>
                                 <th colspan="3">Áp suất (mb)</th>
                                 <th colspan="3">Gió (km/h)</th>
                                 <th colspan="3">Mưa (mm)</th>
@@ -225,8 +225,10 @@
                                 <th rowspan="2">Thời gian crawl</th>
                             </tr>
                             <tr>
-                                <th>Hệ thống</th>
-                                <th>thoitiet360</th>
+                                <th>Hệ thống (TB)</th>
+                                <th>Hệ thống (Min)</th>
+                                <th>Hệ thống (Max)</th>
+                                <th>thoitiet360 (TB/Min/Max)</th>
                                 <th>Chênh lệch</th>
                                 <th>Hệ thống</th>
                                 <th>thoitiet360</th>
@@ -359,12 +361,23 @@
                         return `<span class="${className}">${sign}${val.toFixed(1)}</span>`;
                     };
                     
+                    // Format nhiệt độ với min/max
+                    const formatTempWithMinMax = (temp, tempMin, tempMax) => {
+                        let result = formatValue(temp);
+                        if (tempMin !== null && tempMin !== undefined && tempMax !== null && tempMax !== undefined) {
+                            result += ` (${formatValue(tempMin)}/${formatValue(tempMax)})`;
+                        }
+                        return result;
+                    };
+                    
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td class="city-cell">${cityNames[row.city] || row.city}</td>
                         <td class="date-cell">${formatDate(row.date)}</td>
                         <td>${formatValue(system.Temp)}</td>
-                        <td>${formatValue(thoitiet360.Temp)}</td>
+                        <td>${formatValue(system.Temp_min)}</td>
+                        <td>${formatValue(system.Temp_max)}</td>
+                        <td>${formatTempWithMinMax(thoitiet360.Temp, thoitiet360.Temp_min, thoitiet360.Temp_max)}</td>
                         <td>${formatDiff(diff.Temp)}</td>
                         <td>${formatValue(system.Pressure)}</td>
                         <td>${formatValue(thoitiet360.Pressure)}</td>

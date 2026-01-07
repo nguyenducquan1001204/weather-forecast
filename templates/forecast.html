@@ -607,7 +607,7 @@
                 };
 
                 // Tách ngày hôm nay và các ngày còn lại
-                const todayDay = data.forecast.find(d => d.is_today);
+                const todayDay = data.forecast.find(d => d.is_today) || data.forecast[0]; // Fallback to first day if is_today not found
                 const otherDays = data.forecast.filter(d => !d.is_today);
 
                 // Hiển thị ngày hôm nay với layout giống test dữ liệu
@@ -618,9 +618,26 @@
                 }
                 
                 // Hiển thị phần so sánh nếu có dữ liệu
+                console.log('Comparison check:', {
+                    hasComparison: !!data.comparison,
+                    hasTodayDay: !!todayDay,
+                    comparison: data.comparison,
+                    todayDay: todayDay
+                });
                 if (data.comparison) {
-                    displayComparison(data.comparison, todayDay);
+                    if (todayDay) {
+                        console.log('Calling displayComparison...');
+                        displayComparison(data.comparison, todayDay);
+                    } else {
+                        console.log('No todayDay found, using first forecast day');
+                        if (data.forecast.length > 0) {
+                            displayComparison(data.comparison, data.forecast[0]);
+                        } else {
+                            document.getElementById('comparisonSection').style.display = 'none';
+                        }
+                    }
                 } else {
+                    console.log('Hiding comparison section - no comparison data');
                     document.getElementById('comparisonSection').style.display = 'none';
                 }
 
@@ -738,14 +755,17 @@
         }
         
         function displayComparison(comparisonData, todayDay) {
+            console.log('displayComparison called with:', { comparisonData, todayDay });
             const comparisonSection = document.getElementById('comparisonSection');
             const comparisonContent = document.getElementById('comparisonContent');
             
             if (!comparisonData || !todayDay) {
+                console.log('Missing data, hiding section');
                 comparisonSection.style.display = 'none';
                 return;
             }
             
+            console.log('Showing comparison section');
             comparisonSection.style.display = 'block';
             
             let html = `

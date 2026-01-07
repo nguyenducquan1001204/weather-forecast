@@ -160,6 +160,17 @@ def init_database():
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_thoitiet360_city_date ON thoitiet360_data(city, date)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_thoitiet360_datetime ON thoitiet360_data(datetime)')
     
+    # Migration: Thêm Temp_min và Temp_max vào system_forecasts nếu chưa có
+    try:
+        cursor.execute('ALTER TABLE system_forecasts ADD COLUMN Temp_min REAL')
+    except:
+        pass  # Cột đã tồn tại
+    
+    try:
+        cursor.execute('ALTER TABLE system_forecasts ADD COLUMN Temp_max REAL')
+    except:
+        pass  # Cột đã tồn tại
+    
     # Create table for system forecasts (để so sánh với thoitiet360)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS system_forecasts (
@@ -167,6 +178,8 @@ def init_database():
             city TEXT NOT NULL,
             date TEXT NOT NULL,
             Temp REAL,
+            Temp_min REAL,
+            Temp_max REAL,
             Pressure REAL,
             Wind REAL,
             Rain REAL,
@@ -509,12 +522,19 @@ def get_thoitiet360_data(city, date=None):
     conn.close()
     
     if row:
+        # sqlite3.Row không có method get(), cần dùng try-except hoặc truy cập trực tiếp
+        def safe_get(row, key, default=None):
+            try:
+                return row[key] if row[key] is not None else default
+            except (KeyError, IndexError):
+                return default
+        
         return {
             'city': row['city'],
             'date': row['date'],
             'Temp': row['Temp'],
-            'Temp_min': row.get('Temp_min') if 'Temp_min' in row.keys() else None,
-            'Temp_max': row.get('Temp_max') if 'Temp_max' in row.keys() else None,
+            'Temp_min': safe_get(row, 'Temp_min'),
+            'Temp_max': safe_get(row, 'Temp_max'),
             'Pressure': row['Pressure'],
             'Wind': row['Wind'],
             'Rain': row['Rain'],
