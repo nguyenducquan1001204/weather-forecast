@@ -785,26 +785,42 @@
                     <tbody>
             `;
             
-            // Hiển thị nhiệt độ với min/max
-            const forecastTemp = todayDay.attributes.Temp?.avg;
-            const comparisonTemp = comparisonData.data.Temp;
+            // Hiển thị nhiệt độ chỉ với min/max (không hiển thị trung bình)
+            const forecastTempMin = todayDay.attributes.Temp?.min;
+            const forecastTempMax = todayDay.attributes.Temp?.max;
             const comparisonTempMin = comparisonData.data.Temp_min;
             const comparisonTempMax = comparisonData.data.Temp_max;
             
-            if (forecastTemp !== undefined && comparisonTemp !== null && comparisonTemp !== undefined) {
-                const diff = forecastTemp - comparisonTemp;
-                const diffClass = diff > 0 ? 'positive' : diff < 0 ? 'negative' : '';
-                const diffSign = diff > 0 ? '+' : '';
+            if ((forecastTempMin !== undefined || forecastTempMax !== undefined) && 
+                (comparisonTempMin !== null && comparisonTempMin !== undefined && 
+                 comparisonTempMax !== null && comparisonTempMax !== undefined)) {
                 
-                let forecastDisplay = `${forecastTemp.toFixed(1)}°C`;
-                if (todayDay.attributes.Temp?.min !== undefined && todayDay.attributes.Temp?.max !== undefined) {
-                    forecastDisplay += ` (${todayDay.attributes.Temp.min.toFixed(1)}°C/${todayDay.attributes.Temp.max.toFixed(1)}°C)`;
+                // Tính chênh lệch min và max
+                const diffMin = forecastTempMin !== undefined ? forecastTempMin - comparisonTempMin : null;
+                const diffMax = forecastTempMax !== undefined ? forecastTempMax - comparisonTempMax : null;
+                
+                let forecastDisplay = '-';
+                if (forecastTempMin !== undefined && forecastTempMax !== undefined) {
+                    forecastDisplay = `${forecastTempMin.toFixed(1)}°C / ${forecastTempMax.toFixed(1)}°C`;
                 }
                 
-                let comparisonDisplay = `${comparisonTemp.toFixed(1)}°C`;
-                if (comparisonTempMin !== null && comparisonTempMin !== undefined && 
-                    comparisonTempMax !== null && comparisonTempMax !== undefined) {
-                    comparisonDisplay += ` (${comparisonTempMin.toFixed(1)}°C/${comparisonTempMax.toFixed(1)}°C)`;
+                let comparisonDisplay = `${comparisonTempMin.toFixed(1)}°C / ${comparisonTempMax.toFixed(1)}°C`;
+                
+                let diffDisplay = '-';
+                if (diffMin !== null && diffMax !== null) {
+                    const minSign = diffMin > 0 ? '+' : '';
+                    const maxSign = diffMax > 0 ? '+' : '';
+                    const minClass = diffMin > 0 ? 'positive' : diffMin < 0 ? 'negative' : '';
+                    const maxClass = diffMax > 0 ? 'positive' : diffMax < 0 ? 'negative' : '';
+                    diffDisplay = `<span class="comparison-diff ${minClass}">${minSign}${diffMin.toFixed(1)}°C</span> / <span class="comparison-diff ${maxClass}">${maxSign}${diffMax.toFixed(1)}°C</span>`;
+                } else if (diffMin !== null) {
+                    const minSign = diffMin > 0 ? '+' : '';
+                    const minClass = diffMin > 0 ? 'positive' : diffMin < 0 ? 'negative' : '';
+                    diffDisplay = `<span class="comparison-diff ${minClass}">${minSign}${diffMin.toFixed(1)}°C</span>`;
+                } else if (diffMax !== null) {
+                    const maxSign = diffMax > 0 ? '+' : '';
+                    const maxClass = diffMax > 0 ? 'positive' : diffMax < 0 ? 'negative' : '';
+                    diffDisplay = `<span class="comparison-diff ${maxClass}">${maxSign}${diffMax.toFixed(1)}°C</span>`;
                 }
                 
                 html += `
@@ -812,7 +828,7 @@
                         <td>🌡️ Nhiệt độ</td>
                         <td class="comparison-value">${forecastDisplay}</td>
                         <td class="comparison-value">${comparisonDisplay}</td>
-                        <td class="comparison-diff ${diffClass}">${diffSign}${diff.toFixed(1)}°C</td>
+                        <td>${diffDisplay}</td>
                     </tr>
                 `;
             }
@@ -820,9 +836,7 @@
             const params = [
                 { key: 'Pressure', label: '📊 Áp suất', unit: ' mb', forecastKey: 'Pressure' },
                 { key: 'Wind', label: '💨 Gió', unit: ' km/h', forecastKey: 'Wind' },
-                { key: 'Rain', label: '🌧️ Mưa', unit: ' mm', forecastKey: 'Rain' },
-                { key: 'Cloud', label: '☁️ Mây', unit: '%', forecastKey: 'Cloud' },
-                { key: 'Gust', label: '💨 Gió giật', unit: ' km/h', forecastKey: 'Gust' }
+                { key: 'Rain', label: '🌧️ Mưa', unit: ' mm', forecastKey: 'Rain' }
             ];
             
             params.forEach(param => {

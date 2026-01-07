@@ -84,7 +84,7 @@
         .history-table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 1600px;
+            min-width: 1200px;
         }
         .history-table th,
         .history-table td {
@@ -220,22 +220,13 @@
                                 <th colspan="3">Áp suất (mb)</th>
                                 <th colspan="3">Gió (km/h)</th>
                                 <th colspan="3">Mưa (mm)</th>
-                                <th colspan="3">Mây (%)</th>
-                                <th colspan="3">Gió giật (km/h)</th>
-                                <th rowspan="2">Thời gian crawl</th>
                             </tr>
                             <tr>
-                                <th>Hệ thống (TB)</th>
                                 <th>Hệ thống (Min)</th>
                                 <th>Hệ thống (Max)</th>
-                                <th>thoitiet360 (TB/Min/Max)</th>
-                                <th>Chênh lệch</th>
-                                <th>Hệ thống</th>
-                                <th>thoitiet360</th>
-                                <th>Chênh lệch</th>
-                                <th>Hệ thống</th>
-                                <th>thoitiet360</th>
-                                <th>Chênh lệch</th>
+                                <th>thoitiet360 (Min/Max)</th>
+                                <th>Chênh lệch (Min)</th>
+                                <th>Chênh lệch (Max)</th>
                                 <th>Hệ thống</th>
                                 <th>thoitiet360</th>
                                 <th>Chênh lệch</th>
@@ -361,24 +352,23 @@
                         return `<span class="${className}">${sign}${val.toFixed(1)}</span>`;
                     };
                     
-                    // Format nhiệt độ với min/max
-                    const formatTempWithMinMax = (temp, tempMin, tempMax) => {
-                        let result = formatValue(temp);
+                    // Format nhiệt độ min/max
+                    const formatTempMinMax = (tempMin, tempMax) => {
                         if (tempMin !== null && tempMin !== undefined && tempMax !== null && tempMax !== undefined) {
-                            result += ` (${formatValue(tempMin)}/${formatValue(tempMax)})`;
+                            return `${formatValue(tempMin)}/${formatValue(tempMax)}`;
                         }
-                        return result;
+                        return '-';
                     };
                     
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td class="city-cell">${cityNames[row.city] || row.city}</td>
                         <td class="date-cell">${formatDate(row.date)}</td>
-                        <td>${formatValue(system.Temp)}</td>
                         <td>${formatValue(system.Temp_min)}</td>
                         <td>${formatValue(system.Temp_max)}</td>
-                        <td>${formatTempWithMinMax(thoitiet360.Temp, thoitiet360.Temp_min, thoitiet360.Temp_max)}</td>
-                        <td>${formatDiff(diff.Temp)}</td>
+                        <td>${formatTempMinMax(thoitiet360.Temp_min, thoitiet360.Temp_max)}</td>
+                        <td>${formatDiff(diff.Temp_min)}</td>
+                        <td>${formatDiff(diff.Temp_max)}</td>
                         <td>${formatValue(system.Pressure)}</td>
                         <td>${formatValue(thoitiet360.Pressure)}</td>
                         <td>${formatDiff(diff.Pressure)}</td>
@@ -388,13 +378,6 @@
                         <td>${formatValue(system.Rain)}</td>
                         <td>${formatValue(thoitiet360.Rain)}</td>
                         <td>${formatDiff(diff.Rain)}</td>
-                        <td>${formatValue(system.Cloud)}</td>
-                        <td>${formatValue(thoitiet360.Cloud)}</td>
-                        <td>${formatDiff(diff.Cloud)}</td>
-                        <td>${formatValue(system.Gust)}</td>
-                        <td>${formatValue(thoitiet360.Gust)}</td>
-                        <td>${formatDiff(diff.Gust)}</td>
-                        <td>${formatDateTime(row.crawled_at)}</td>
                     `;
                     historyTableBody.appendChild(tr);
                 });
