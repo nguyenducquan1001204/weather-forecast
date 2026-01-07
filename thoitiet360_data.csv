@@ -1,4 +1,7 @@
 ﻿city,city_key,date,source,crawled_at,Temp,Temp_min,Temp_max,Pressure,Wind,Rain,Cloud,raw_text
-Hà Nội,ha-noi,2026-01-07,thoitiet360,2026-01-07 10:24:03,17.0,13.0,20.0,1027.0,5.57,0.0,,Trang chủ Thời tiết các Tỉnh/TP Đông Bắc Bộ
-Vinh,vinh,2026-01-07,thoitiet360,2026-01-07 10:24:07,15.0,13.6,16.2,1027.0,3.64,0.0,,Trang chủ Thời tiết các Tỉnh/TP Đông Bắc Bộ
-Hồ Chí Minh,ho-chi-minh,2026-01-07,thoitiet360,2026-01-07 10:24:11,26.0,22.0,31.0,1015.0,4.99,0.0,,Trang chủ Thời tiết các Tỉnh/TP Đông Bắc Bộ
+Hà Nội,ha-noi,2026-01-06,thoitiet360,2026-01-06 23:56:11,14.0,11.0,15.0,1028.0,6.92,0.0,,Trang chủ Thời tiết các Tỉnh/TP Đông Bắc Bộ
+Hà Nội,ha-noi,2026-01-07,thoitiet360,2026-01-07 10:46:36,17.0,13.0,20.0,1028.0,5.57,0.0,,Trang chủ Thời tiết các Tỉnh/TP Đông Bắc Bộ
+Hồ Chí Minh,ho-chi-minh,2026-01-06,thoitiet360,2026-01-06 23:56:19,32.0,24.0,33.0,1013.0,4.66,2.51,,Trang chủ Thời tiết các Tỉnh/TP Đông Bắc Bộ
+Hồ Chí Minh,ho-chi-minh,2026-01-07,thoitiet360,2026-01-07 10:46:44,27.0,22.0,31.0,1015.0,4.99,0.0,,Trang chủ Thời tiết các Tỉnh/TP Đông Bắc Bộ
+Vinh,vinh,2026-01-06,thoitiet360,2026-01-06 23:56:14,17.0,15.0,18.4,1024.0,6.04,1.67,,Trang chủ Thời tiết các Tỉnh/TP Đông Bắc Bộ
+Vinh,vinh,2026-01-07,thoitiet360,2026-01-07 10:46:40,15.0,13.1,16.0,1027.0,3.64,0.0,,Trang chủ Thời tiết các Tỉnh/TP Đông Bắc Bộ

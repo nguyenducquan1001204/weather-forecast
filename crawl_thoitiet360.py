@@ -388,20 +388,43 @@ def preprocess_thoitiet360_data(df):
     return df
 
 def save_to_csv(data, filename='thoitiet360_data.csv'):
-    """Lưu dữ liệu gốc vào file CSV"""
+    """Lưu dữ liệu gốc vào file CSV (giữ lại dữ liệu cũ)"""
     try:
         if not data:
             print("⚠️  Không có dữ liệu để lưu")
             return
         
-        # Lưu file gốc (chưa tiền xử lý)
-        df_raw = pd.DataFrame(data)
-        if 'raw_text' in df_raw.columns:
-            df_raw['raw_text'] = df_raw['raw_text'].astype(str).str.replace('\n', ' ').str.replace('\r', ' ').str.strip()
-            df_raw['raw_text'] = df_raw['raw_text'].str[:100]
+        # Đọc dữ liệu cũ từ CSV (nếu có)
+        df_old = pd.DataFrame()
+        import os
+        if os.path.exists(filename):
+            try:
+                df_old = pd.read_csv(filename, encoding='utf-8-sig')
+                print(f"📖 Đã đọc {len(df_old)} records cũ từ {filename}")
+            except Exception as e:
+                print(f"⚠️  Không thể đọc file cũ: {str(e)}")
+                df_old = pd.DataFrame()
         
-        df_raw.to_csv(filename, index=False, encoding='utf-8-sig')
-        print(f"✅ Đã lưu {len(df_raw)} records vào {filename}")
+        # Tạo DataFrame từ dữ liệu mới
+        df_new = pd.DataFrame(data)
+        if 'raw_text' in df_new.columns:
+            df_new['raw_text'] = df_new['raw_text'].astype(str).str.replace('\n', ' ').str.replace('\r', ' ').str.strip()
+            df_new['raw_text'] = df_new['raw_text'].str[:100]
+        
+        # Gộp dữ liệu cũ và mới
+        if not df_old.empty:
+            df_combined = pd.concat([df_old, df_new], ignore_index=True)
+            # Loại bỏ trùng lặp (dựa trên city, date) - giữ lại bản mới nhất
+            df_combined = df_combined.drop_duplicates(subset=['city', 'date'], keep='last')
+            # Sắp xếp theo city và date
+            df_combined = df_combined.sort_values(['city', 'date']).reset_index(drop=True)
+            df_final = df_combined
+        else:
+            df_final = df_new
+        
+        # Lưu lại toàn bộ
+        df_final.to_csv(filename, index=False, encoding='utf-8-sig')
+        print(f"✅ Đã lưu {len(df_final)} records vào {filename} (trong đó {len(df_new)} records mới)")
     except Exception as e:
         print(f"❌ Lỗi khi lưu CSV: {str(e)}")
 
