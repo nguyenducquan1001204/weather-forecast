@@ -143,10 +143,90 @@
                     </a>
                 </li>
                 <li class="sidebar-nav-item">
+                    <a href="/charts/year/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📊</span>
+                        <span>Biểu đồ năm (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/month/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📅</span>
+                        <span>Biểu đồ tháng (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/day/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📆</span>
+                        <span>Biểu đồ ngày (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/charts/hour/all" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">⏰</span>
+                        <span>Biểu đồ giờ (Toàn bộ)</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
                     <a href="/comparison-history" class="sidebar-nav-link active">
                         <span class="sidebar-nav-icon">📊</span>
                         <span>Lịch sử so sánh</span>
                     </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/statistics" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">📊</span>
+                        <span>Phân tích thống kê</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item">
+                    <a href="/climate" class="sidebar-nav-link">
+                        <span class="sidebar-nav-icon">🌍</span>
+                        <span>Biến đổi khí hậu</span>
+                    </a>
+                </li>
+                <li class="sidebar-nav-item has-submenu">
+                    <a href="#" class="sidebar-nav-link" onclick="toggleSubmenu(event, this)">
+                        <span class="sidebar-nav-icon">🧪</span>
+                        <span>Đánh giá dữ liệu</span>
+                    </a>
+                    <ul class="sidebar-submenu">
+                        <li class="sidebar-submenu-item">
+                            <a href="/test" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">🧪</span>
+                                <span>Test dữ liệu</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/accuracy" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📊</span>
+                                <span>Độ chính xác</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/year" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📈</span>
+                                <span>Biểu đồ năm</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/month" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📅</span>
+                                <span>Biểu đồ tháng</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/day" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">📆</span>
+                                <span>Biểu đồ ngày</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-submenu-item">
+                            <a href="/charts/hour" class="sidebar-submenu-link">
+                                <span class="sidebar-nav-icon">⏰</span>
+                                <span>Biểu đồ giờ</span>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
             </ul>
         </aside>
@@ -440,7 +520,26 @@
             // Cập nhật danh sách ngày khi thay đổi năm hoặc tháng
             document.getElementById('yearFilter').addEventListener('change', updateDayOptions);
             document.getElementById('monthFilter').addEventListener('change', updateDayOptions);
+            
+            checkActiveSubmenu();
         };
+        
+        function toggleSubmenu(event, element) {
+            event.preventDefault();
+            const parent = element.closest('.sidebar-nav-item');
+            parent.classList.toggle('open');
+        }
+
+        function checkActiveSubmenu() {
+            const currentPath = window.location.pathname;
+            const submenuLinks = document.querySelectorAll('.sidebar-submenu-link');
+            submenuLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                    link.closest('.sidebar-nav-item.has-submenu').classList.add('open');
+                }
+            });
+        }
     </script>
 </body>
 </html>
