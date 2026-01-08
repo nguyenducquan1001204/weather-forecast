@@ -1,7 +1,4 @@
-"""
-Script để import dữ liệu từ thoitiet360_data.csv vào database
-Chạy sau khi sync từ GitHub
-"""
+
 import pandas as pd
 from database import init_database, get_db_connection
 import os
@@ -21,14 +18,12 @@ def import_csv_to_database():
         return 0
     
     try:
-        # Đọc CSV
         df = pd.read_csv(csv_file, encoding='utf-8-sig')
         
         if df.empty:
             print("⚠️  File CSV trống")
             return 0
         
-        # Khởi tạo database
         init_database()
         
         conn = get_db_connection()
@@ -37,7 +32,6 @@ def import_csv_to_database():
         inserted = 0
         updated = 0
         
-        # Xử lý từng dòng
         for _, row in df.iterrows():
             city = row.get('city_key') or row.get('city', '')
             date = row.get('date', '')
@@ -45,7 +39,6 @@ def import_csv_to_database():
             if not city or not date:
                 continue
             
-            # Chuyển đổi tên thành phố nếu cần
             city_mapping = {
                 'Hà Nội': 'ha-noi',
                 'Vinh': 'vinh',
@@ -54,7 +47,6 @@ def import_csv_to_database():
             if city in city_mapping:
                 city = city_mapping[city]
             
-            # Kiểm tra xem đã có record chưa
             cursor.execute('''
                 SELECT id FROM thoitiet360_data 
                 WHERE city = ? AND date = ?
@@ -62,13 +54,11 @@ def import_csv_to_database():
             
             existing = cursor.fetchone()
             
-            # Tạo datetime nếu chưa có
             datetime_val = row.get('datetime')
             if pd.isna(datetime_val) or not datetime_val:
                 datetime_val = f"{date} 00:00:00"
             
             if existing:
-                # Update record đã tồn tại
                 cursor.execute('''
                     UPDATE thoitiet360_data 
                     SET datetime = ?, Temp = ?, Pressure = ?, Wind = ?, Rain = ?, Cloud = ?, Gust = ?
@@ -86,7 +76,6 @@ def import_csv_to_database():
                 ))
                 updated += 1
             else:
-                # Insert record mới
                 cursor.execute('''
                     INSERT INTO thoitiet360_data 
                     (city, date, datetime, Temp, Pressure, Wind, Rain, Cloud, Gust)

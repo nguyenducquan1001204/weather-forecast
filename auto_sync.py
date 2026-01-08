@@ -1,7 +1,3 @@
-"""
-Script để tự động đồng bộ files từ GitHub khi workflow hoàn thành
-Chạy script này định kỳ (ví dụ: mỗi 5-10 phút) hoặc như một scheduled task
-"""
 import subprocess
 import sys
 import os
@@ -12,19 +8,15 @@ if sys.platform == 'win32':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
-# Lấy thư mục nơi script này được đặt
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def check_and_pull():
-    """Kiểm tra cập nhật và pull nếu có"""
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Checking for updates...")
     print(f"  Working directory: {SCRIPT_DIR}")
     
     try:
-        # Chuyển đến thư mục script để đảm bảo đúng vị trí
         os.chdir(SCRIPT_DIR)
         
-        # Lấy các thay đổi mới nhất
         result = subprocess.run(
             ['git', 'fetch', 'origin', 'main'],
             capture_output=True,
@@ -36,7 +28,6 @@ def check_and_pull():
             print(f"  ❌ Lỗi khi fetch: {result.stderr}")
             return False
         
-        # Kiểm tra xem có commit mới không
         result = subprocess.run(
             ['git', 'rev-list', '--count', 'HEAD..origin/main'],
             capture_output=True,
@@ -53,7 +44,6 @@ def check_and_pull():
         if commits_behind > 0:
             print(f"  Tìm thấy {commits_behind} commit(s) mới. Đang pull cập nhật...")
             
-            # Pull các thay đổi
             result = subprocess.run(
                 ['git', 'pull', 'origin', 'main'],
                 capture_output=True,

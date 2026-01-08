@@ -1,7 +1,3 @@
-"""
-Script để tự động đồng bộ files thoitiet360 từ GitHub
-Chạy script này định kỳ (mỗi 10 phút) hoặc khi khởi động máy
-"""
 import subprocess
 import sys
 import os
@@ -12,19 +8,15 @@ if sys.platform == 'win32':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
-# Lấy thư mục nơi script này được đặt
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def check_and_pull():
-    """Kiểm tra cập nhật và pull nếu có"""
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Đang kiểm tra cập nhật thoitiet360 từ GitHub...")
     print(f"  Thư mục làm việc: {SCRIPT_DIR}")
     
     try:
-        # Chuyển đến thư mục script để đảm bảo đúng vị trí
         os.chdir(SCRIPT_DIR)
         
-        # Lấy các thay đổi mới nhất
         result = subprocess.run(
             ['git', 'fetch', 'origin', 'main'],
             capture_output=True,
@@ -36,7 +28,6 @@ def check_and_pull():
             print(f"  ⚠️  Không thể fetch từ GitHub (có thể không phải git repo): {result.stderr[:100]}")
             return False
         
-        # Kiểm tra xem có commit mới không
         result = subprocess.run(
             ['git', 'rev-list', '--count', 'HEAD..origin/main'],
             capture_output=True,
@@ -53,7 +44,6 @@ def check_and_pull():
         if commits_behind > 0:
             print(f"  📥 Tìm thấy {commits_behind} commit(s) mới. Đang pull cập nhật...")
             
-            # Pull các thay đổi
             result = subprocess.run(
                 ['git', 'pull', 'origin', 'main'],
                 capture_output=True,
@@ -65,12 +55,10 @@ def check_and_pull():
                 print(f"  ✅ Đã pull thành công {commits_behind} commit(s)")
                 print(f"  📄 Các file đã cập nhật: thoitiet360_data.csv, database, và các file khác")
                 
-                # Cập nhật database nếu có file CSV mới
                 try:
                     csv_file = os.path.join(SCRIPT_DIR, 'thoitiet360_data.csv')
                     if os.path.exists(csv_file):
                         print(f"  💾 Đang import dữ liệu từ CSV vào database...")
-                        # Sử dụng script import riêng
                         import import_thoitiet360_to_db
                         import_thoitiet360_to_db.import_csv_to_database()
                 except Exception as e:

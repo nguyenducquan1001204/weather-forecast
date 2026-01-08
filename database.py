@@ -1,6 +1,3 @@
-"""
-Database models and connection for SQLite
-"""
 import sqlite3
 import pandas as pd
 import numpy as np
@@ -10,14 +7,12 @@ from contextlib import contextmanager
 DB_PATH = 'weather.db'
 
 def get_db_connection():
-    """Get SQLite database connection"""
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
 @contextmanager
 def get_db():
-    """Context manager for database connection"""
     conn = get_db_connection()
     try:
         yield conn
@@ -29,12 +24,9 @@ def get_db():
         conn.close()
 
 def init_database():
-    """Initialize database schema"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Create cold_air_settings table
-    # level: 0=off, 1=nhẹ, 2=trung bình, 3=mạnh
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS cold_air_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,22 +36,18 @@ def init_database():
         )
     ''')
     
-    # Migrate from old is_active column to level column if needed
     try:
         cursor.execute('PRAGMA table_info(cold_air_settings)')
         columns = [row[1] for row in cursor.fetchall()]
         
         if 'is_active' in columns and 'level' not in columns:
-            # Migrate: add level column and convert is_active to level
             cursor.execute('ALTER TABLE cold_air_settings ADD COLUMN level INTEGER DEFAULT 0')
             cursor.execute('UPDATE cold_air_settings SET level = is_active WHERE level = 0')
         elif 'is_active' in columns and 'level' in columns:
-            # Both columns exist, migrate data
             cursor.execute('UPDATE cold_air_settings SET level = is_active WHERE level = 0 AND is_active IS NOT NULL')
     except:
         pass
     
-    # Insert default setting if not exists
     cursor.execute('SELECT COUNT(*) FROM cold_air_settings')
     if cursor.fetchone()[0] == 0:
         cursor.execute('''
@@ -98,7 +86,6 @@ def init_database():
         )
     ''')
     
-    # Create indexes for faster queries
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_city_year_month_day_hour ON weather_data(city, year, month, day, hour)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_city_year ON weather_data(city, year)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_city_year_month ON weather_data(city, year, month)')
@@ -126,7 +113,6 @@ def init_database():
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_accuracy_city ON accuracy_results(city)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_accuracy_calculated_at ON accuracy_results(calculated_at)')
     
-    # Create table for thoitiet360 comparison data
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS thoitiet360_data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,32 +132,29 @@ def init_database():
         )
     ''')
     
-    # Thêm cột Temp_min và Temp_max nếu chưa có (migration)
     try:
         cursor.execute('ALTER TABLE thoitiet360_data ADD COLUMN Temp_min REAL')
     except:
-        pass  # Cột đã tồn tại
+        pass
     
     try:
         cursor.execute('ALTER TABLE thoitiet360_data ADD COLUMN Temp_max REAL')
     except:
-        pass  # Cột đã tồn tại
+        pass
     
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_thoitiet360_city_date ON thoitiet360_data(city, date)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_thoitiet360_datetime ON thoitiet360_data(datetime)')
     
-    # Migration: Thêm Temp_min và Temp_max vào system_forecasts nếu chưa có
     try:
         cursor.execute('ALTER TABLE system_forecasts ADD COLUMN Temp_min REAL')
     except:
-        pass  # Cột đã tồn tại
+        pass
     
     try:
         cursor.execute('ALTER TABLE system_forecasts ADD COLUMN Temp_max REAL')
     except:
-        pass  # Cột đã tồn tại
+        pass
     
-    # Create table for system forecasts (để so sánh với thoitiet360)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS system_forecasts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -197,7 +180,6 @@ def init_database():
     print("[OK] Database schema initialized successfully!")
 
 def load_data_from_db():
-    """Load data from database and return as DataFrame (similar to original load_data function)"""
     conn = get_db_connection()
     
     query = '''
@@ -215,13 +197,11 @@ def load_data_from_db():
     df = pd.read_sql_query(query, conn)
     conn.close()
     
-    # Convert datetime column to datetime type
     df['datetime'] = pd.to_datetime(df['datetime'])
     
     return df
 
 def get_data_count():
-    """Get total number of records in database"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT COUNT(*) FROM weather_data')
@@ -230,17 +210,11 @@ def get_data_count():
     return count
 
 def clean_weather_data(df):
-    """
-    Clean and preprocess weather data (similar to load_data function)
-    Returns cleaned DataFrame ready for database insertion
-    """
     df = df.copy()
     
-    # Create datetime column
     df['datetime'] = pd.to_datetime(df['date'] + ' ' + df['Time'])
     df = df.sort_values(['city', 'datetime']).reset_index(drop=True)
     
-    # Clean data columns - remove units
     if 'Temp' in df.columns:
         df['Temp'] = df['Temp'].astype(str).str.replace(' °c', '').str.replace('°c', '').str.replace('°C', '').str.strip()
         df['Temp'] = pd.to_numeric(df['Temp'], errors='coerce')
@@ -265,12 +239,10 @@ def clean_weather_data(df):
         df['Gust'] = df['Gust'].astype(str).str.replace(' km/h', '').str.replace('km/h', '').str.strip()
         df['Gust'] = pd.to_numeric(df['Gust'], errors='coerce')
     
-    # Encode Dir column
     if 'Dir' in df.columns:
         dir_mapping = {'N': 0, 'NE': 1, 'E': 2, 'SE': 3, 'S': 4, 'SW': 5, 'W': 6, 'NW': 7}
         df['Dir'] = df['Dir'].map(dir_mapping).fillna(0).astype(int)
     
-    # Extract datetime components
     df['year'] = df['datetime'].dt.year
     df['month'] = df['datetime'].dt.month
     df['day'] = df['datetime'].dt.day
@@ -279,7 +251,6 @@ def clean_weather_data(df):
     df['day_of_week'] = df['datetime'].dt.dayofweek
     df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
     
-    # Season calculation
     def get_season(month):
         if month in [12, 1, 2]:
             return 0
@@ -292,7 +263,6 @@ def clean_weather_data(df):
     
     df['season'] = df['month'].apply(get_season)
     
-    # Cyclical encoding
     df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
     df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
     df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
@@ -300,37 +270,24 @@ def clean_weather_data(df):
     df['day_of_year_sin'] = np.sin(2 * np.pi * df['day_of_year'] / 365)
     df['day_of_year_cos'] = np.cos(2 * np.pi * df['day_of_year'] / 365)
     
-    # Convert datetime to string for database storage
     df['datetime'] = df['datetime'].astype(str)
     
     return df
 
 def insert_data_to_db(df, batch_size=1000, skip_duplicates=True):
-    """
-    Insert cleaned weather data into database
-    Args:
-        df: DataFrame with cleaned data
-        batch_size: Number of records to insert per batch
-        skip_duplicates: If True, skip records that already exist (based on city, date, Time)
-    Returns:
-        Number of records inserted
-    """
     if len(df) == 0:
         return 0
     
-    # Ensure database is initialized
     init_database()
     
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Get existing records if skip_duplicates is True
     existing_records = set()
     if skip_duplicates:
         cursor.execute('SELECT city, date, Time FROM weather_data')
         existing_records = set(cursor.fetchall())
     
-    # Prepare data for insertion
     columns = [
         'city', 'date', 'Time', 'datetime',
         'Temp', 'Rain', 'Cloud', 'Pressure', 'Wind', 'Gust', 'Dir',
@@ -340,13 +297,10 @@ def insert_data_to_db(df, batch_size=1000, skip_duplicates=True):
         'day_of_year_sin', 'day_of_year_cos'
     ]
     
-    # Filter out columns that don't exist
     available_columns = [col for col in columns if col in df.columns]
     
-    # Prepare values for insertion
     values_to_insert = []
     for _, row in df.iterrows():
-        # Check for duplicates
         if skip_duplicates:
             record_key = (str(row.get('city', '')), str(row.get('date', '')), str(row.get('Time', '')))
             if record_key in existing_records:
@@ -359,7 +313,6 @@ def insert_data_to_db(df, batch_size=1000, skip_duplicates=True):
         conn.close()
         return 0
     
-    # Insert in batches
     placeholders = ','.join(['?' for _ in available_columns])
     query = f'''
         INSERT INTO weather_data ({','.join(available_columns)})
@@ -377,14 +330,6 @@ def insert_data_to_db(df, batch_size=1000, skip_duplicates=True):
     return inserted
 
 def save_accuracy_results(result_dict):
-    """
-    Save accuracy results to database
-    Args:
-        result_dict: Dictionary with accuracy results (from calculate_accuracy.py)
-    Returns:
-        Number of records inserted
-    """
-    # Ensure database schema is initialized
     init_database()
     
     conn = get_db_connection()
@@ -436,11 +381,6 @@ def save_accuracy_results(result_dict):
     return inserted
 
 def get_latest_accuracy_results():
-    """
-    Get the latest accuracy results from database
-    Returns:
-        Dictionary with accuracy results (similar to JSON structure)
-    """
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -492,14 +432,6 @@ def get_latest_accuracy_results():
     return result
 
 def get_thoitiet360_data(city, date=None):
-    """
-    Lấy dữ liệu từ thoitiet360.edu.vn để so sánh
-    Args:
-        city: Tên thành phố (vinh, ha-noi, ho-chi-minh-city)
-        date: Ngày cần lấy (YYYY-MM-DD), nếu None thì lấy ngày mới nhất
-    Returns:
-        Dict chứa dữ liệu hoặc None nếu không tìm thấy
-    """
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -522,7 +454,6 @@ def get_thoitiet360_data(city, date=None):
     conn.close()
     
     if row:
-        # sqlite3.Row không có method get(), cần dùng try-except hoặc truy cập trực tiếp
         def safe_get(row, key, default=None):
             try:
                 return row[key] if row[key] is not None else default
