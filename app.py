@@ -24,7 +24,6 @@ target_vars = ['Temp_numeric', 'Rain_numeric', 'Cloud_numeric',
                'Pressure_numeric', 'Wind_numeric', 'Gust_numeric']
 
 def load_models():
-    """Tải cả 2 loại model: final (để dự báo) và improved (để test/validation)"""
     global models_final, feature_cols_dict_final
     global models_improved, feature_cols_dict_improved
     global models, feature_cols_dict
@@ -32,7 +31,6 @@ def load_models():
     loaded_final = False
     loaded_improved = False
     
-    # Tải final model (để dự báo)
     if os.path.exists('weather_models_final.pkl'):
         try:
             print("Đang tải weather_models_final.pkl (cho dự báo)...")
@@ -53,7 +51,6 @@ def load_models():
     else:
         print("⚠️  Không tìm thấy weather_models_final.pkl")
     
-    # Tải improved model (để test/validation)
     if os.path.exists('weather_models_improved.pkl'):
         try:
             print("Đang tải weather_models_improved.pkl (cho test/validation)...")
@@ -74,7 +71,6 @@ def load_models():
     else:
         print("⚠️  Không tìm thấy weather_models_improved.pkl")
     
-    # Đặt models mặc định (ưu tiên final, fallback improved)
     if loaded_final:
         models = models_final
         feature_cols_dict = feature_cols_dict_final
@@ -84,7 +80,6 @@ def load_models():
         feature_cols_dict = feature_cols_dict_improved
         print("\n⚠️  Sử dụng IMPROVED models làm mặc định (fallback)")
     else:
-        # Fallback về model cũ
         if os.path.exists('weather_models.pkl'):
             try:
                 print("Đang tải weather_models.pkl (model cũ)...")
@@ -107,11 +102,6 @@ def load_models():
     return True
 
 def get_cold_air_setting():
-    """Lấy mức độ không khí lạnh từ file config JSON
-    Returns: tuple (level, sunny_day) 
-        - level: 0=tắt, 1=nhẹ, 2=trung bình, 3=mạnh
-        - sunny_day: 0=không nắng, 1=nắng
-    """
     config_file = 'cold_air_config.json'
     try:
         if os.path.exists(config_file):
@@ -123,14 +113,6 @@ def get_cold_air_setting():
         return 0, 0
 
 def apply_cold_air_adjustment(predictions, city, hours=None):
-    """Áp dụng điều chỉnh nhiệt độ không khí lạnh dựa trên thành phố, thời gian và mức độ
-    
-    Mức độ:
-    - 0: Tắt (không điều chỉnh)
-    - 1: Nhẹ
-    - 2: Trung bình
-    - 3: Mạnh
-    """
     level, sunny_day = get_cold_air_setting()
     if level == 0:
         return predictions
@@ -142,8 +124,7 @@ def apply_cold_air_adjustment(predictions, city, hours=None):
             predictions = predictions - 2.0
         elif level == 2:  # Trung bình
             predictions = predictions - 3.0
-        elif level == 3:  # Mạnh
-            # Mạnh: giảm 4-7°C (random trong khoảng)
+        elif level == 3:
             import random
             adjustments = np.array([random.uniform(4.0, 7.0) for _ in range(len(predictions))])
             predictions = predictions - adjustments
@@ -159,14 +140,12 @@ def apply_cold_air_adjustment(predictions, city, hours=None):
             elif level == 2:  # Trung bình
                 predictions[night_mask] = predictions[night_mask] - 2.5
                 predictions[day_mask] = predictions[day_mask] - 1.5
-            elif level == 3:  # Mạnh
-                # Ban đêm: giảm 3-5°C, ban ngày: giảm 2.5°C
+            elif level == 3:
                 import random
                 night_adjustments = np.array([random.uniform(3.0, 5.0) for _ in range(np.sum(night_mask))])
                 predictions[night_mask] = predictions[night_mask] - night_adjustments
                 predictions[day_mask] = predictions[day_mask] - 2.5
         else:
-            # Nếu không có thông tin giờ, áp dụng điều chỉnh trung bình
             if level == 1:
                 predictions = predictions - 1.5
             elif level == 2:
@@ -175,16 +154,10 @@ def apply_cold_air_adjustment(predictions, city, hours=None):
                 import random
                 adjustments = np.array([random.uniform(2.5, 4.0) for _ in range(len(predictions))])
                 predictions = predictions - adjustments
-    # Hồ Chí Minh: giữ nguyên (không điều chỉnh)
     
     return predictions
 
 def get_models_for_route(use_improved=False):
-    """
-    Lấy models và feature_cols phù hợp cho route
-    - use_improved=True: dùng improved model (cho test/validation/charts)
-    - use_improved=False: dùng final model (cho forecast)
-    """
     global models_final, feature_cols_dict_final
     global models_improved, feature_cols_dict_improved
     
@@ -198,12 +171,10 @@ def get_models_for_route(use_improved=False):
         return models, feature_cols_dict
 
 def load_data():
-    """Tải dữ liệu từ SQLite database (fallback về CSV nếu database không tồn tại)"""
     try:
         from database import load_data_from_db, init_database
         import os
         
-        # Khởi tạo database nếu chưa tồn tại
         if not os.path.exists('weather.db'):
             print("⚠️  Không tìm thấy database. Đang khởi tạo...")
             init_database()
@@ -211,7 +182,6 @@ def load_data():
             print("⚠️  Đang fallback về CSV...")
             return load_data_from_csv()
         
-        # Thử tải từ database
         df = load_data_from_db()
         if len(df) == 0:
             print("⚠️  Database trống. Vui lòng chạy migrate_csv_to_db.py trước.")
@@ -225,12 +195,10 @@ def load_data():
         return load_data_from_csv()
 
 def load_data_from_csv():
-    """Tải dữ liệu từ CSV (implementation gốc làm fallback)"""
     df = pd.read_csv('weather_all_cities.csv', encoding='utf-8-sig')
     df['datetime'] = pd.to_datetime(df['date'] + ' ' + df['Time'])
     df = df.sort_values(['city', 'datetime']).reset_index(drop=True)
     
-    # Làm sạch cột gốc và giữ nguyên tên, không tạo cột mới
     df['Temp'] = df['Temp'].str.replace(' °c', '').str.replace('°c', '').astype(float)
     df['Rain'] = df['Rain'].str.replace('mm', '').astype(float)
     df['Cloud'] = df['Cloud'].str.replace('%', '').astype(float)
@@ -238,7 +206,6 @@ def load_data_from_csv():
     df['Wind'] = df['Wind'].str.replace(' km/h', '').astype(float)
     df['Gust'] = df['Gust'].str.replace(' km/h', '').astype(float)
     
-    # Mã hóa cột Dir (hướng gió) thành số
     dir_mapping = {'N': 0, 'NE': 1, 'E': 2, 'SE': 3, 'S': 4, 'SW': 5, 'W': 6, 'NW': 7}
     df['Dir'] = df['Dir'].map(dir_mapping).fillna(0).astype(int)
     
@@ -262,7 +229,6 @@ def load_data_from_csv():
     
     df['season'] = df['month'].apply(get_season)
     
-    # Mã hóa tuần hoàn (cho improved model)
     df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
     df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
     df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
@@ -273,7 +239,6 @@ def load_data_from_csv():
     return df
 
 def create_features_for_prediction(df, target_col='Temp'):
-    """Tạo advanced features cho dữ liệu cần dự đoán (CÁCH MỚI - tạo đầy đủ cho tất cả biến)"""
     df = df.copy()
     df = df.sort_values(['city', 'datetime']).reset_index(drop=True)
     
@@ -281,52 +246,43 @@ def create_features_for_prediction(df, target_col='Temp'):
         city_mask = df['city'] == city
         city_data = df[city_mask].copy().sort_values('datetime').reset_index(drop=True)
         
-        # 1. Lag features của Temp (chỉ lag_12, lag_24)
         for lag in [12, 24]:
             df.loc[city_mask, f'Temp_lag_{lag}'] = city_data['Temp'].shift(lag).values
         
-        # 2. Rolling features của Temp (chỉ rolling_12, rolling_24)
         for window in [12, 24]:
             df.loc[city_mask, f'Temp_rolling_mean_{window}'] = city_data['Temp'].shift(1).rolling(window=window, min_periods=1).mean().values
             df.loc[city_mask, f'Temp_rolling_std_{window}'] = city_data['Temp'].shift(1).rolling(window=window, min_periods=1).std().fillna(0).values
             df.loc[city_mask, f'Temp_rolling_max_{window}'] = city_data['Temp'].shift(1).rolling(window=window, min_periods=1).max().values
             df.loc[city_mask, f'Temp_rolling_min_{window}'] = city_data['Temp'].shift(1).rolling(window=window, min_periods=1).min().values
         
-        # 3. Lag features của Pressure, Wind, Cloud, Rain (CÁCH MỚI - tạo cho tất cả)
         for var in ['Pressure', 'Wind', 'Cloud', 'Rain']:
             for lag in [1, 3, 6, 12, 24]:
                 df.loc[city_mask, f'{var}_lag_{lag}'] = city_data[var].shift(lag).values
         
-        # 4. Rolling features của Pressure, Wind, Cloud, Rain (CÁCH MỚI - tạo cho tất cả)
         for var in ['Pressure', 'Wind', 'Cloud', 'Rain']:
             for window in [3, 6, 12, 24]:
                 df.loc[city_mask, f'{var}_rolling_mean_{window}'] = city_data[var].shift(1).rolling(window=window, min_periods=1).mean().values
                 df.loc[city_mask, f'{var}_rolling_max_{window}'] = city_data[var].shift(1).rolling(window=window, min_periods=1).max().values
         
-        # Binary features cho Rain
         has_rain = (city_data['Rain'] > 0).astype(int)
         df.loc[city_mask, 'has_rain'] = has_rain.values
         df.loc[city_mask, 'has_rain_lag_1'] = has_rain.shift(1).fillna(0).astype(int).values
         df.loc[city_mask, 'has_rain_lag_3'] = has_rain.shift(3).fillna(0).astype(int).values
         df.loc[city_mask, 'has_rain_lag_6'] = has_rain.shift(6).fillna(0).astype(int).values
         
-        # Context features của Temp
         city_data['hour'] = city_data['datetime'].dt.hour
         df.loc[city_mask, 'Temp_same_hour_1d_ago'] = city_data.groupby('hour')['Temp'].shift(8).values
         df.loc[city_mask, 'Temp_same_hour_7d_ago'] = city_data.groupby('hour')['Temp'].shift(7*8).values
         df.loc[city_mask, 'Temp_same_hour_avg_7d'] = city_data.groupby('hour')['Temp'].transform(lambda x: x.shift(1).rolling(window=7*8, min_periods=1).mean()).values
         
-        # Context features của Rain
         df.loc[city_mask, 'Rain_same_hour_1d_ago'] = city_data.groupby('hour')['Rain'].shift(8).values
         df.loc[city_mask, 'Rain_same_hour_7d_ago'] = city_data.groupby('hour')['Rain'].shift(7*8).values
         df.loc[city_mask, 'Rain_same_hour_avg_7d'] = city_data.groupby('hour')['Rain'].transform(lambda x: x.shift(1).rolling(window=7*8, min_periods=1).mean()).values
         
-        # Context features của Cloud
         df.loc[city_mask, 'Cloud_same_hour_1d_ago'] = city_data.groupby('hour')['Cloud'].shift(8).values
         df.loc[city_mask, 'Cloud_same_hour_7d_ago'] = city_data.groupby('hour')['Cloud'].shift(7*8).values
         df.loc[city_mask, 'Cloud_same_hour_avg_7d'] = city_data.groupby('hour')['Cloud'].transform(lambda x: x.shift(1).rolling(window=7*8, min_periods=1).mean()).values
     
-    # Interaction features (tương tác giữa các biến)
     df['hour_month_interaction'] = df['hour'] * df['month']
     df['pressure_wind_interaction'] = df['Pressure'] * df['Wind'] / 100
     df['cloud_hour_interaction'] = df['Cloud'] * df['hour'] / 100
@@ -334,17 +290,14 @@ def create_features_for_prediction(df, target_col='Temp'):
     df['rain_cloud_interaction'] = df['Rain'] * df['Cloud'] / 100
     df['temp_pressure_interaction'] = df['Temp'] * df['Pressure'] / 100
     
-    # Mã hóa thành phố - đảm bảo tất cả các cột city được tạo
     all_cities = ['vinh', 'ha-noi', 'ho-chi-minh-city']
     
-    # Xóa các cột city_* cũ nếu có
     city_cols_to_drop = [col for col in df.columns if col.startswith('city_')]
     if city_cols_to_drop:
         df = df.drop(columns=city_cols_to_drop)
     
     city_dummies = pd.get_dummies(df['city'], prefix='city')
     
-    # Thêm các cột city còn thiếu với giá trị 0
     for city in all_cities:
         col_name = f'city_{city}'
         if col_name not in city_dummies.columns:
@@ -411,7 +364,6 @@ def predict():
         except:
             return jsonify({'error': 'Invalid date format'}), 400
         
-        # Dùng improved model cho test/validation
         route_models, route_feature_cols = get_models_for_route(use_improved=True)
         
         df = load_data()
@@ -420,7 +372,6 @@ def predict():
         test_start = '2023-01-01'
         test_df = df[df['datetime'] >= test_start].copy()
         
-        # Lấy dữ liệu cho ngày cần dự đoán và 2 ngày trước để tạo features (cần cho lag_24)
         start_date_for_features = pd.to_datetime(selected_date) - pd.Timedelta(days=2)
         data_for_features = test_df[
             (test_df['datetime'] >= start_date_for_features) & 
@@ -431,10 +382,8 @@ def predict():
         if len(data_for_features) == 0:
             return jsonify({'error': f'No data found for {city} on {selected_date}'}), 400
         
-        # Tạo advanced features cho temperature
         data_for_features = create_features_for_prediction(data_for_features, 'Temp')
         
-        # Lấy dữ liệu cho ngày cần dự đoán
         day_data = data_for_features[
             data_for_features['datetime'].dt.date == selected_date
         ].copy().sort_values('datetime')
@@ -468,7 +417,6 @@ def predict():
         }
         
         for target in target_vars:
-            # Chọn model phù hợp: model riêng cho HCM hoặc model chung
             if target == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                 model_key = 'Temp_numeric_hcm'
             else:
@@ -480,7 +428,6 @@ def predict():
             feature_cols = route_feature_cols[model_key]
             model = route_models[model_key]
             
-            # Ánh xạ tên cột từ _numeric sang tên gốc nếu cần (models dùng _numeric, data dùng tên gốc)
             feature_mapping = {}
             for col in feature_cols:
                 if col.endswith('_numeric') and col.replace('_numeric', '') in day_data.columns:
@@ -488,7 +435,6 @@ def predict():
                 elif col in day_data.columns:
                     feature_mapping[col] = col
             
-            # Tạo X với tên cột đúng
             X = pd.DataFrame()
             for model_col, data_col in feature_mapping.items():
                 if data_col in day_data.columns:
@@ -496,7 +442,6 @@ def predict():
                 else:
                     X[model_col] = 0
             
-            # Đảm bảo tất cả features có trong X
             missing_features = [f for f in feature_cols if f not in X.columns]
             if missing_features:
                 for f in missing_features:
@@ -505,11 +450,9 @@ def predict():
             X = X[feature_cols].fillna(0)
             predictions = model.predict(X)
             
-            # Áp dụng điều chỉnh không khí lạnh cho nhiệt độ
             if target == 'Temp_numeric':
                 predictions = apply_cold_air_adjustment(predictions, city, day_data['hour'].values if 'hour' in day_data.columns else None)
             
-            # Ánh xạ tên target
             target_col = target.replace('_numeric', '') if target.endswith('_numeric') else target
             actuals = day_data[target_col].values if target_col in day_data.columns else day_data[target].values
             errors = np.abs(actuals - predictions)
@@ -540,7 +483,6 @@ def get_detail_data():
         except:
             return jsonify({'error': 'Invalid date format'}), 400
         
-        # Dùng improved model cho test/validation
         route_models, route_feature_cols = get_models_for_route(use_improved=True)
         
         df = load_data()
@@ -549,7 +491,6 @@ def get_detail_data():
         test_start = '2023-01-01'
         test_df = df[df['datetime'] >= test_start].copy()
         
-        # Lấy dữ liệu cho ngày cần dự đoán và 2 ngày trước để tạo features
         start_date_for_features = pd.to_datetime(selected_date) - pd.Timedelta(days=2)
         data_for_features = test_df[
             (test_df['datetime'] >= start_date_for_features) & 
@@ -560,10 +501,8 @@ def get_detail_data():
         if len(data_for_features) == 0:
             return jsonify({'error': f'No data found for {city} on {selected_date}'}), 400
         
-        # Tạo advanced features cho temperature
         data_for_features = create_features_for_prediction(data_for_features, 'Temp')
         
-        # Lấy dữ liệu cho ngày cần dự đoán
         day_data = data_for_features[
             data_for_features['datetime'].dt.date == selected_date
         ].copy().sort_values('datetime')
@@ -594,7 +533,6 @@ def get_detail_data():
         min_max = {}
         
         for target in target_vars:
-            # Chọn model phù hợp: model riêng cho HCM hoặc model chung
             if target == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                 model_key = 'Temp_numeric_hcm'
             else:
@@ -606,7 +544,6 @@ def get_detail_data():
             feature_cols = route_feature_cols[model_key]
             model = route_models[model_key]
             
-            # Ánh xạ tên cột từ _numeric sang tên gốc nếu cần (models dùng _numeric, data dùng tên gốc)
             feature_mapping = {}
             for col in feature_cols:
                 if col.endswith('_numeric') and col.replace('_numeric', '') in day_data.columns:
@@ -614,7 +551,6 @@ def get_detail_data():
                 elif col in day_data.columns:
                     feature_mapping[col] = col
             
-            # Tạo X với tên cột đúng
             X = pd.DataFrame()
             for model_col, data_col in feature_mapping.items():
                 if data_col in day_data.columns:
@@ -622,7 +558,6 @@ def get_detail_data():
                 else:
                     X[model_col] = 0
             
-            # Đảm bảo tất cả features có trong X
             missing_features = [f for f in feature_cols if f not in X.columns]
             if missing_features:
                 for f in missing_features:
@@ -631,11 +566,9 @@ def get_detail_data():
             X = X[feature_cols].fillna(0)
             predictions = model.predict(X)
             
-            # Áp dụng điều chỉnh không khí lạnh cho nhiệt độ
             if target == 'Temp_numeric':
                 predictions = apply_cold_air_adjustment(predictions, city, day_data['hour'].values if 'hour' in day_data.columns else None)
             
-            # Ánh xạ tên target
             target_col = target.replace('_numeric', '') if target.endswith('_numeric') else target
             actuals = day_data[target_col].values if target_col in day_data.columns else day_data[target].values
             
@@ -689,13 +622,11 @@ def api_charts_year():
         data = request.json
         city = data.get('city', 'vinh')
         
-        # Dùng improved model cho đánh giá dữ liệu
         route_models, route_feature_cols = get_models_for_route(use_improved=True)
         
         df = load_data()
         city_df = df[df['city'] == city].copy()
         
-        # Chỉ hiển thị dữ liệu đến năm 2025
         city_df = city_df[city_df['year'] <= 2025].copy()
         years = sorted(city_df['year'].unique())
         
@@ -730,7 +661,6 @@ def api_charts_year():
                 predictions = []
                 for target in ['Temp', 'Cloud', 'Pressure', 'Wind', 'Gust']:
                     target_key = f'{target}_numeric'
-                    # Chọn model phù hợp: model riêng cho HCM hoặc model chung
                     if target_key == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                         model_key = 'Temp_numeric_hcm'
                     else:
@@ -741,7 +671,6 @@ def api_charts_year():
                         feature_cols = route_feature_cols.get(model_key, [])
                         
                         if len(feature_cols) > 0:
-                            # Ánh xạ tên cột từ _numeric sang tên gốc nếu cần
                             feature_mapping = {}
                             for col in feature_cols:
                                 if col.endswith('_numeric') and col.replace('_numeric', '') in year_data_features.columns:
@@ -749,7 +678,6 @@ def api_charts_year():
                                 elif col in year_data_features.columns:
                                     feature_mapping[col] = col
                             
-                            # Tạo X với tên cột đúng
                             X = pd.DataFrame()
                             for model_col, data_col in feature_mapping.items():
                                 if data_col in year_data_features.columns:
@@ -757,7 +685,6 @@ def api_charts_year():
                                 else:
                                     X[model_col] = 0
                             
-                            # Đảm bảo tất cả features có trong X
                             missing_features = [f for f in feature_cols if f not in X.columns]
                             if missing_features:
                                 for f in missing_features:
@@ -766,7 +693,6 @@ def api_charts_year():
                             X = X[feature_cols].fillna(0)
                             pred = route_models[model_key].predict(X)
                             
-                            # Áp dụng điều chỉnh không khí lạnh cho nhiệt độ
                             if target == 'Temp_numeric':
                                 hours = year_data_features['hour'].values if 'hour' in year_data_features.columns else None
                                 pred = apply_cold_air_adjustment(pred, city, hours)
@@ -802,10 +728,8 @@ def api_charts_year_all():
         df = load_data()
         city_df = df[df['city'] == city].copy()
         
-        # Sử dụng toàn bộ dữ liệu (không filter năm)
         years = sorted(city_df['year'].unique())
         
-        # Chỉ trả về dữ liệu thực tế, không có dự đoán
         result = {
             'years': [int(y) for y in years],
             'actual': {
@@ -837,7 +761,6 @@ def api_charts_month():
         city = data.get('city', 'vinh')
         year = int(data.get('year', 2023))
         
-        # Dùng improved model cho đánh giá dữ liệu
         route_models, route_feature_cols = get_models_for_route(use_improved=True)
         
         df = load_data()
@@ -879,7 +802,6 @@ def api_charts_month():
                 predictions = []
                 for target in ['Temp', 'Cloud', 'Pressure', 'Wind', 'Gust']:
                     target_key = f'{target}_numeric'
-                    # Chọn model phù hợp: model riêng cho HCM hoặc model chung
                     if target_key == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                         model_key = 'Temp_numeric_hcm'
                     else:
@@ -890,7 +812,6 @@ def api_charts_month():
                         feature_cols = route_feature_cols.get(model_key, [])
                         
                         if len(feature_cols) > 0:
-                            # Ánh xạ tên cột từ _numeric sang tên gốc nếu cần
                             feature_mapping = {}
                             for col in feature_cols:
                                 if col.endswith('_numeric') and col.replace('_numeric', '') in month_data_features.columns:
@@ -898,7 +819,6 @@ def api_charts_month():
                                 elif col in month_data_features.columns:
                                     feature_mapping[col] = col
                             
-                            # Tạo X với tên cột đúng
                             X = pd.DataFrame()
                             for model_col, data_col in feature_mapping.items():
                                 if data_col in month_data_features.columns:
@@ -906,7 +826,6 @@ def api_charts_month():
                                 else:
                                     X[model_col] = 0
                             
-                            # Đảm bảo tất cả features có trong X
                             missing_features = [f for f in feature_cols if f not in X.columns]
                             if missing_features:
                                 for f in missing_features:
@@ -915,7 +834,6 @@ def api_charts_month():
                             X = X[feature_cols].fillna(0)
                             pred = route_models[model_key].predict(X)
                             
-                            # Áp dụng điều chỉnh không khí lạnh cho nhiệt độ
                             if target == 'Temp_numeric':
                                 hours = month_data_features['hour'].values if 'hour' in month_data_features.columns else None
                                 pred = apply_cold_air_adjustment(pred, city, hours)
@@ -957,7 +875,6 @@ def api_charts_month_all():
         
         months = sorted(city_df['month'].unique())
         
-        # Chỉ trả về dữ liệu thực tế, không có dự đoán
         result = {
             'months': [int(m) for m in months],
             'actual': {
@@ -996,7 +913,6 @@ def api_charts_month_all_minmax():
         if len(city_df) == 0:
             return jsonify({'error': f'No data found for {city} in {year}'}), 400
         
-        # Ánh xạ tên metric sang tên cột
         metric_map = {
             'temp': 'Temp',
             'cloud': 'Cloud',
@@ -1010,7 +926,6 @@ def api_charts_month_all_minmax():
         
         col_name = metric_map[metric]
         
-        # Tìm giá trị min và max
         min_idx = city_df[col_name].idxmin()
         max_idx = city_df[col_name].idxmax()
         
@@ -1046,7 +961,6 @@ def api_charts_day():
         year = int(data.get('year', 2023))
         month = int(data.get('month', 1))
         
-        # Dùng improved model cho đánh giá dữ liệu
         route_models, route_feature_cols = get_models_for_route(use_improved=True)
         
         df = load_data()
@@ -1088,7 +1002,6 @@ def api_charts_day():
                 predictions = []
                 for target in ['Temp', 'Cloud', 'Pressure', 'Wind', 'Gust']:
                     target_key = f'{target}_numeric'
-                    # Chọn model phù hợp: model riêng cho HCM hoặc model chung
                     if target_key == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                         model_key = 'Temp_numeric_hcm'
                     else:
@@ -1099,7 +1012,6 @@ def api_charts_day():
                         feature_cols = route_feature_cols.get(model_key, [])
                         
                         if len(feature_cols) > 0:
-                            # Ánh xạ tên cột từ _numeric sang tên gốc nếu cần
                             feature_mapping = {}
                             for col in feature_cols:
                                 if col.endswith('_numeric') and col.replace('_numeric', '') in day_data_features.columns:
@@ -1107,7 +1019,6 @@ def api_charts_day():
                                 elif col in day_data_features.columns:
                                     feature_mapping[col] = col
                             
-                            # Tạo X với tên cột đúng
                             X = pd.DataFrame()
                             for model_col, data_col in feature_mapping.items():
                                 if data_col in day_data_features.columns:
@@ -1115,7 +1026,6 @@ def api_charts_day():
                                 else:
                                     X[model_col] = 0
                             
-                            # Đảm bảo tất cả features có trong X
                             missing_features = [f for f in feature_cols if f not in X.columns]
                             if missing_features:
                                 for f in missing_features:
@@ -1124,7 +1034,6 @@ def api_charts_day():
                             X = X[feature_cols].fillna(0)
                             pred = route_models[model_key].predict(X)
                             
-                            # Áp dụng điều chỉnh không khí lạnh cho nhiệt độ
                             if target == 'Temp_numeric':
                                 hours = day_data_features['hour'].values if 'hour' in day_data_features.columns else None
                                 pred = apply_cold_air_adjustment(pred, city, hours)
@@ -1167,7 +1076,6 @@ def api_charts_day_all():
         
         days = sorted(city_df['day'].unique())
         
-        # Chỉ trả về dữ liệu thực tế, không có dự đoán
         result = {
             'days': [int(d) for d in days],
             'actual': {
@@ -1220,7 +1128,6 @@ def api_charts_day_all_minmax():
         
         col_name = metric_map[metric]
         
-        # Tính min/max cho từng ngày trong tháng
         days = sorted(city_df['day'].unique())
         daily_data = []
         
@@ -1246,7 +1153,6 @@ def api_charts_day_all_minmax():
                 }
             })
         
-        # Tìm ngày có giá trị cao nhất và thấp nhất cho tất cả các metric
         all_max_values = [d['max']['value'] for d in daily_data]
         all_min_values = [d['min']['value'] for d in daily_data]
         
@@ -1288,7 +1194,6 @@ def api_charts_hour_all():
         
         hours = sorted(city_df['hour'].unique())
         
-        # Chỉ trả về dữ liệu thực tế, không có dự đoán
         result = {
             'hours': [int(h) for h in hours],
             'actual': {
@@ -1354,7 +1259,6 @@ def api_charts_hour_all_minmax():
         
         col_name = metric_map[metric]
         
-        # Tính min/max cho từng giờ trong ngày
         hours = sorted(city_df['hour'].unique())
         hourly_data = []
         
@@ -1379,10 +1283,9 @@ def api_charts_hour_all_minmax():
                         'value': float(hour_max_row[col_name]),
                         'time': hour_max_row['Time'],
                         'date': hour_max_row['date']
-                    }
-                })
+                }
+            })
         
-        # Tìm giờ có giá trị cao nhất và thấp nhất cho tất cả các metric
         all_max_values = [d['max']['value'] for d in hourly_data]
         all_min_values = [d['min']['value'] for d in hourly_data]
         
@@ -1411,7 +1314,6 @@ def api_charts_hour():
         month = int(data.get('month', 1))
         day = int(data.get('day', 1))
         
-        # Dùng improved model cho charts (test/validation)
         route_models, route_feature_cols = get_models_for_route(use_improved=True)
         
         df = load_data()
@@ -1465,7 +1367,6 @@ def api_charts_hour():
                 predictions = []
                 for target in ['Temp', 'Cloud', 'Pressure', 'Wind', 'Gust']:
                     target_key = f'{target}_numeric'
-                    # Chọn model phù hợp: model riêng cho HCM hoặc model chung
                     if target_key == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                         model_key = 'Temp_numeric_hcm'
                     else:
@@ -1476,7 +1377,6 @@ def api_charts_hour():
                         feature_cols = route_feature_cols.get(model_key, [])
                         
                         if len(feature_cols) > 0:
-                            # Ánh xạ tên cột từ _numeric sang tên gốc nếu cần
                             feature_mapping = {}
                             for col in feature_cols:
                                 if col.endswith('_numeric') and col.replace('_numeric', '') in hour_data_features.columns:
@@ -1484,7 +1384,6 @@ def api_charts_hour():
                                 elif col in hour_data_features.columns:
                                     feature_mapping[col] = col
                             
-                            # Tạo X với tên cột đúng
                             X = pd.DataFrame()
                             for model_col, data_col in feature_mapping.items():
                                 if data_col in hour_data_features.columns:
@@ -1492,7 +1391,6 @@ def api_charts_hour():
                                 else:
                                     X[model_col] = 0
                             
-                            # Đảm bảo tất cả features có trong X
                             missing_features = [f for f in feature_cols if f not in X.columns]
                             if missing_features:
                                 for f in missing_features:
@@ -1557,28 +1455,20 @@ def api_forecast():
         
         df = load_data()
         
-        # Lấy ngày hiện tại
         today = pd.Timestamp.now().date()
         
-        # Lấy dữ liệu mới nhất của thành phố
         city_df = df[df['city'] == city].copy().sort_values('datetime')
         
         if len(city_df) == 0:
             return jsonify({'error': f'No data found for {city}'}), 400
         
-        # Lấy ngày cuối cùng có dữ liệu
         last_date = city_df['datetime'].dt.date.max()
         
-        # Nếu hôm nay <= ngày cuối cùng có dữ liệu, thì dự báo từ ngày mai
-        # Nếu hôm nay > ngày cuối cùng có dữ liệu, thì dự báo từ hôm nay
         if today <= last_date:
-            # Dữ liệu đã có đến hôm nay hoặc sau hôm nay, dự báo từ ngày mai
             start_forecast_date = last_date + pd.Timedelta(days=1)
         else:
-            # Dữ liệu chưa có đến hôm nay, dự báo từ hôm nay
             start_forecast_date = today
         
-        # Tạo danh sách 7 ngày (từ start_forecast_date + 6 ngày tiếp theo)
         forecast_dates = [start_forecast_date + pd.Timedelta(days=i) for i in range(7)]
         
         result = {
@@ -1589,24 +1479,19 @@ def api_forecast():
             'forecast': []
         }
         
-        # Lấy dữ liệu quá khứ để tạo features (cần ít nhất 2 ngày trước)
         start_date_for_features = forecast_dates[0] - pd.Timedelta(days=2)
         end_date_for_features = forecast_dates[-1]
         
-        # Lấy dữ liệu có sẵn (từ quá khứ đến ngày cuối cùng có dữ liệu)
         available_data = city_df[
             (city_df['datetime'].dt.date >= start_date_for_features) & 
             (city_df['datetime'].dt.date <= last_date)
         ].copy().sort_values('datetime')
         
-        # Tạo features cho dữ liệu có sẵn
         if len(available_data) > 0:
             available_data = create_features_for_prediction(available_data, 'Temp')
         
-        # Lưu dự đoán của mỗi ngày để dùng cho ngày tiếp theo
-        previous_day_predictions = {}  # {date: {attr_name: [dự đoán cho 8 giờ]}}
+        previous_day_predictions = {}
         
-        # Dự báo cho từng ngày
         for day_idx, forecast_date in enumerate(forecast_dates):
             day_forecast = {
                 'date': forecast_date.strftime('%Y-%m-%d'),
@@ -1616,10 +1501,8 @@ def api_forecast():
                 'attributes': {}
             }
             
-            # Tạo dữ liệu cho 24 giờ trong ngày (mỗi 3 giờ: 0, 3, 6, 9, 12, 15, 18, 21)
             hours = [0, 3, 6, 9, 12, 15, 18, 21]
             
-            # Tạo DataFrame cho ngày dự báo
             forecast_data_list = []
             is_first_day = (day_idx == 0)
             
@@ -1629,58 +1512,47 @@ def api_forecast():
                 latest_row = pd.Series()
                 
                 if is_first_day:
-                    # Ngày đầu tiên: Dùng dữ liệu thực tế từ database
                     real_data = city_df[city_df['datetime'].dt.date < forecast_date].copy()
                     
                     if len(real_data) > 0:
-                        # Tìm dữ liệu cùng giờ gần nhất từ dữ liệu thực tế
                         same_hour_real = real_data[
                             (real_data['datetime'].dt.hour == hour)
                         ]
                         
                         if len(same_hour_real) > 0:
-                            # Lấy giá trị trung bình của cùng giờ trong 7 ngày gần nhất (chỉ cột numeric)
                             numeric_cols = same_hour_real.select_dtypes(include=[np.number]).columns
                             latest_row = same_hour_real.tail(7)[numeric_cols].mean()
-                            # Thêm các cột không phải số từ dòng cuối cùng
                             last_row = same_hour_real.tail(1).iloc[0]
                             for col in same_hour_real.columns:
                                 if col not in numeric_cols:
                                     latest_row[col] = last_row[col]
                         else:
-                            # Lấy giá trị trung bình của giờ gần nhất (chỉ cột numeric)
                             numeric_cols = real_data.select_dtypes(include=[np.number]).columns
                             latest_row = real_data.tail(24)[numeric_cols].mean()
-                            # Thêm các cột không phải số từ dòng cuối cùng
                             last_row = real_data.tail(1).iloc[0]
                             for col in real_data.columns:
                                 if col not in numeric_cols:
                                     latest_row[col] = last_row[col]
                 else:
-                    # Ngày sau: Dùng dự đoán của ngày trước
                     previous_date = forecast_dates[day_idx - 1]
                     if previous_date in previous_day_predictions:
                         prev_predictions = previous_day_predictions[previous_date]
                         hour_idx = hours.index(hour) if hour in hours else 0
                         
-                        # Lấy dự đoán của giờ tương ứng từ ngày trước
                         if hour_idx < len(hours):
                             for attr_name, pred_values in prev_predictions.items():
                                 if hour_idx < len(pred_values):
                                     latest_row[attr_name] = float(pred_values[hour_idx])
                         
-                        # Nếu không có đủ dữ liệu, lấy từ giờ cuối cùng của ngày trước
                         if len(latest_row) == 0:
                             last_hour_idx = len(hours) - 1
                             for attr_name, pred_values in prev_predictions.items():
                                 if last_hour_idx < len(pred_values):
                                     latest_row[attr_name] = float(pred_values[last_hour_idx])
                     
-                    # Nếu vẫn không có dữ liệu, tạo dòng mặc định
                     if len(latest_row) == 0:
                         latest_row = pd.Series()
                 
-                # Tạo dòng mới cho giờ này
                 row = {
                     'datetime': dt,
                     'city': city,
@@ -1693,7 +1565,6 @@ def api_forecast():
                     'is_weekend': 1 if forecast_date.weekday() >= 5 else 0,
                 }
                 
-                # Tính mùa
                 if forecast_date.month in [12, 1, 2]:
                     row['season'] = 0
                 elif forecast_date.month in [3, 4, 5]:
@@ -1703,7 +1574,6 @@ def api_forecast():
                 else:
                     row['season'] = 3
                 
-                # Mã hóa tuần hoàn
                 row['hour_sin'] = np.sin(2 * np.pi * hour / 24)
                 row['hour_cos'] = np.cos(2 * np.pi * hour / 24)
                 row['month_sin'] = np.sin(2 * np.pi * forecast_date.month / 12)
@@ -1711,72 +1581,55 @@ def api_forecast():
                 row['day_of_year_sin'] = np.sin(2 * np.pi * row['day_of_year'] / 365)
                 row['day_of_year_cos'] = np.cos(2 * np.pi * row['day_of_year'] / 365)
                 
-                # Sao chép các giá trị từ latest_row nếu có
                 for col in ['Temp', 'Rain', 'Cloud', 'Pressure', 'Wind', 'Gust', 'Dir']:
                     if col in latest_row.index and pd.notna(latest_row[col]):
                         base_value = float(latest_row[col])
                         
-                        # Tính số ngày từ ngày đầu tiên dự báo
                         days_from_start = (forecast_date - start_forecast_date).days
                         
-                        # Ngày đầu tiên: Giữ nguyên, không biến đổi
                         if days_from_start == 0:
                             row[col] = base_value
                         else:
-                            # Từ ngày 2 trở đi: Áp dụng biến đổi lớn để mỗi ngày khác nhau rõ ràng
-                            # Biến đổi dựa trên ngày trong tuần (cuối tuần có thể khác)
                             day_of_week_factor = 1.0
-                            if row['day_of_week'] >= 5:  # Cuối tuần
+                            if row['day_of_week'] >= 5:
                                 if col == 'Temp':
-                                    day_of_week_factor = 1.02  # Cuối tuần có thể nóng hơn một chút
+                                    day_of_week_factor = 1.02
                             
-                            # Biến đổi dựa trên số ngày - tăng biến đổi lớn hơn
-                            # Kết hợp biến đổi tuần hoàn và tuyến tính
-                            day_progression_sin = np.sin(2 * np.pi * days_from_start / 7) * 4.0  # Biến đổi ±4 độ (tuần hoàn)
-                            day_progression_linear = days_from_start * 0.8  # Biến đổi tuyến tính +0.8 độ mỗi ngày
+                            day_progression_sin = np.sin(2 * np.pi * days_from_start / 7) * 4.0
+                            day_progression_linear = days_from_start * 0.8
                             day_progression = day_progression_sin + day_progression_linear
                             
-                            # Biến đổi theo mùa với thay đổi lớn hơn
                             season_factor = 1.0
-                            if row['season'] == 0:  # Đông
+                            if row['season'] == 0:
                                 if col == 'Temp':
-                                    season_factor = 0.96 + (days_from_start % 5) * 0.02  # Biến đổi lớn hơn theo ngày
-                            elif row['season'] == 2:  # Hè
+                                    season_factor = 0.96 + (days_from_start % 5) * 0.02
+                            elif row['season'] == 2:
                                 if col == 'Temp':
                                     season_factor = 1.04 - (days_from_start % 5) * 0.02
                             
-                            # Thêm biến đổi ngẫu nhiên nhỏ dựa trên ngày để đảm bảo khác biệt
-                            day_random = (days_from_start * 17) % 10 - 5  # Biến đổi -5 đến +5 độ dựa trên ngày
+                            day_random = (days_from_start * 17) % 10 - 5
                             
-                            # Áp dụng biến đổi
                             if col == 'Temp':
-                                # Tổng hợp tất cả biến đổi để đảm bảo mỗi ngày khác nhau rõ ràng
                                 row[col] = base_value * season_factor * day_of_week_factor + day_progression + day_random * 0.3
                             elif col == 'Pressure':
-                                # Áp suất biến đổi nhỏ hơn
                                 pressure_variation = np.sin(2 * np.pi * days_from_start / 5) * 1.5
                                 row[col] = base_value + pressure_variation
                             elif col == 'Rain':
-                                # Mưa có thể thay đổi đột ngột
                                 rain_variation = np.sin(2 * np.pi * days_from_start / 4) * 0.5
                                 row[col] = max(0, base_value + rain_variation)
                             elif col == 'Cloud':
-                                # Mây biến đổi
                                 cloud_variation = np.sin(2 * np.pi * days_from_start / 6) * 5.0
                                 row[col] = max(0, min(100, base_value + cloud_variation))
                             elif col in ['Wind', 'Gust']:
-                                # Gió biến đổi
                                 wind_variation = np.sin(2 * np.pi * days_from_start / 5) * 1.0
                                 row[col] = max(0, base_value + wind_variation)
                             else:
                                 row[col] = base_value
                     else:
-                        # Giá trị mặc định
                         defaults = {'Temp': 25.0, 'Rain': 0.0, 'Cloud': 50.0, 
                                    'Pressure': 1013.0, 'Wind': 10.0, 'Gust': 15.0, 'Dir': 0}
                         row[col] = defaults.get(col, 0.0)
                 
-                # Sao chép các features từ latest_row nếu có
                 for col in available_data.columns:
                     if col not in row and col.startswith(('Temp_', 'Pressure_', 'Wind_', 'Cloud_')):
                         if col in latest_row.index and pd.notna(latest_row[col]):
@@ -1788,7 +1641,6 @@ def api_forecast():
             
             forecast_df = pd.DataFrame(forecast_data_list)
             
-            # Đảm bảo forecast_df có đủ các cột cần thiết
             required_cols = ['Temp', 'Rain', 'Cloud', 'Pressure', 'Wind', 'Gust', 'Dir', 'datetime', 'city']
             for col in required_cols:
                 if col not in forecast_df.columns:
@@ -1801,25 +1653,19 @@ def api_forecast():
                                    'Pressure': 1013.0, 'Wind': 10.0, 'Gust': 15.0, 'Dir': 0}
                         forecast_df[col] = defaults.get(col, 0.0)
             
-            # Tạo features cho forecast_df
             if is_first_day:
-                # Ngày đầu tiên: Dùng dữ liệu thực tế từ database
                 real_data_for_features = city_df[city_df['datetime'].dt.date < forecast_date].tail(100).copy()
                 
                 if len(real_data_for_features) > 0:
                     try:
-                        # Kết hợp dữ liệu thực tế và forecast_df để tính features
                         combined_df = pd.concat([real_data_for_features, forecast_df], ignore_index=True).sort_values('datetime')
                         combined_df = create_features_for_prediction(combined_df, 'Temp')
                         
-                        # Lấy lại phần forecast
                         forecast_df = combined_df[combined_df['datetime'].dt.date == forecast_date].copy()
                         
-                        # Đảm bảo có đủ dòng
                         if len(forecast_df) == 0:
                             raise ValueError("Không có dữ liệu dự báo sau khi tạo features")
                     except Exception as e:
-                        # Nếu có lỗi, fallback về cách đơn giản
                         try:
                             forecast_df = create_features_for_prediction(forecast_df, 'Temp')
                         except:
@@ -1830,21 +1676,16 @@ def api_forecast():
                     except:
                         pass
             else:
-                # Ngày sau: Dùng available_data (đã có predictions của ngày trước)
                 if len(available_data) > 0:
                     try:
-                        # Kết hợp available_data (có predictions) và forecast_df để tính features
                         combined_df = pd.concat([available_data, forecast_df], ignore_index=True).sort_values('datetime')
                         combined_df = create_features_for_prediction(combined_df, 'Temp')
                         
-                        # Lấy lại phần forecast
                         forecast_df = combined_df[combined_df['datetime'].dt.date == forecast_date].copy()
                         
-                        # Đảm bảo có đủ dòng
                         if len(forecast_df) == 0:
                             raise ValueError("Không có dữ liệu dự báo sau khi tạo features")
                     except Exception as e:
-                        # Nếu có lỗi, fallback về cách đơn giản
                         try:
                             forecast_df = create_features_for_prediction(forecast_df, 'Temp')
                         except:
@@ -1855,11 +1696,9 @@ def api_forecast():
                     except:
                         pass
             
-            # Dự đoán cho từng attribute - dùng final model cho forecast
             route_models, route_feature_cols = get_models_for_route(use_improved=False)
             all_predictions = {}
             for target in target_vars:
-                # Chọn model phù hợp
                 if target == 'Temp_numeric' and city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in route_models:
                     model_key = 'Temp_numeric_hcm'
                 else:
@@ -1871,7 +1710,6 @@ def api_forecast():
                 feature_cols = route_feature_cols[model_key]
                 model = route_models[model_key]
                 
-                # Ánh xạ tên cột
                 feature_mapping = {}
                 for col in feature_cols:
                     if col.endswith('_numeric') and col.replace('_numeric', '') in forecast_df.columns:
@@ -1879,7 +1717,6 @@ def api_forecast():
                     elif col in forecast_df.columns:
                         feature_mapping[col] = col
                 
-                # Tạo X
                 X = pd.DataFrame()
                 for model_col, data_col in feature_mapping.items():
                     if data_col in forecast_df.columns:
@@ -1895,18 +1732,14 @@ def api_forecast():
                 X = X[feature_cols].fillna(0)
                 predictions = model.predict(X)
                 
-                # Áp dụng điều chỉnh không khí lạnh cho nhiệt độ
                 if target == 'Temp_numeric':
                     predictions = apply_cold_air_adjustment(predictions, city, forecast_df['hour'].values if 'hour' in forecast_df.columns else None)
                 
                 target_name = target.replace('_numeric', '')
                 temp_max = float(np.max(predictions))
                 
-                # Nếu là nhiệt độ, kiểm tra điều kiện cộng thêm 1.25 độ cho ngày nắng
                 if target_name == 'Temp':
                     level, sunny_day = get_cold_air_setting()
-                    # Chỉ áp dụng khi: level=1 (nhẹ), sunny_day=1 (nắng), và city là vinh hoặc ha-noi
-                    # Cộng 1.25 độ vào nhiệt độ cao nhất ngày
                     if level == 1 and sunny_day == 1 and city in ['vinh', 'ha-noi']:
                         temp_max += 1.25
                 
@@ -1917,34 +1750,27 @@ def api_forecast():
                     'avg': float(np.mean(predictions))
                 }
                 
-                # Lưu tất cả predictions để dùng cho ngày tiếp theo
                 all_predictions[target_name] = predictions
             
             result['forecast'].append(day_forecast)
             
-            # Lưu predictions của ngày này để dùng cho ngày tiếp theo
             if len(all_predictions) > 0:
                 previous_day_predictions[forecast_date] = all_predictions.copy()
                 
-                # Cập nhật available_data với tất cả predictions để tính features cho ngày sau
                 for idx, hour in enumerate(hours):
                     dt = pd.Timestamp.combine(forecast_date, pd.Timestamp.min.time()) + pd.Timedelta(hours=hour)
                     new_row = forecast_df.iloc[idx].copy()
                     
-                    # Cập nhật tất cả các attributes đã dự đoán
                     for attr_name, pred_values in all_predictions.items():
                         if idx < len(pred_values):
                             new_row[attr_name] = float(pred_values[idx])
                     
-                    # Thêm vào available_data để tính features
                     new_row_df = pd.DataFrame([new_row])
                     available_data = pd.concat([available_data, new_row_df], ignore_index=True)
                 
                 available_data = available_data.sort_values('datetime').reset_index(drop=True)
-                # Tạo lại features sau khi thêm dữ liệu mới
                 available_data = create_features_for_prediction(available_data, 'Temp')
         
-        # Lưu dự đoán vào database cho ngày đầu tiên (hôm nay)
         try:
             from database import get_db_connection
             today_forecast = result['forecast'][0] if len(result['forecast']) > 0 and result['forecast'][0]['is_today'] else None
@@ -1952,13 +1778,11 @@ def api_forecast():
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 
-                # Tính trung bình các giá trị dự đoán
                 forecast_avg = {}
                 for attr_name, attr_data in today_forecast['attributes'].items():
                     if 'avg' in attr_data:
                         forecast_avg[attr_name] = attr_data['avg']
                 
-                # Lưu hoặc cập nhật vào database
                 cursor.execute('''
                     INSERT OR REPLACE INTO system_forecasts 
                     (city, date, Temp, Temp_min, Temp_max, Pressure, Wind, Rain, Cloud, Gust)
@@ -1978,10 +1802,8 @@ def api_forecast():
                 conn.commit()
                 conn.close()
         except Exception as e:
-            # Nếu có lỗi khi lưu, bỏ qua
             pass
         
-        # Thêm dữ liệu so sánh từ thoitiet360.edu.vn cho ngày hôm nay
         try:
             from database import get_thoitiet360_data
             thoitiet360_data = get_thoitiet360_data(city, today.strftime('%Y-%m-%d'))
@@ -2002,7 +1824,6 @@ def api_forecast():
                     }
                 }
         except Exception as e:
-            # Log lỗi để debug
             import traceback
             print(f"⚠️  Lỗi khi lấy dữ liệu so sánh: {str(e)}")
             traceback.print_exc()
@@ -2019,24 +1840,21 @@ def api_forecast():
 
 @app.route('/comparison-history')
 def comparison_history():
-    """Trang xem lịch sử so sánh với thoitiet360.edu.vn"""
     return render_template('comparison_history.html')
 
 @app.route('/api/comparison-history', methods=['POST'])
 def api_comparison_history():
-    """API lấy dữ liệu lịch sử so sánh - bao gồm cả dự đoán hệ thống và thoitiet360"""
     try:
         from database import get_db_connection
         import pandas as pd
         
         data = request.json
         city = data.get('city', '')
-        date_filter = data.get('date', '')  # Format: YYYY-MM-DD hoặc YYYY-MM hoặc YYYY
+        date_filter = data.get('date', '')
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Lấy dữ liệu từ thoitiet360_data
         query = '''
             SELECT city, date, datetime, Temp, Temp_min, Temp_max, Pressure, Wind, Rain, Cloud, Gust, crawled_at
             FROM thoitiet360_data
@@ -2064,13 +1882,11 @@ def api_comparison_history():
         cursor.execute(query, params)
         thoitiet360_rows = cursor.fetchall()
         
-        # Lấy dự liệu dự đoán từ database (đã lưu sẵn)
         history = []
         for row in thoitiet360_rows:
             city_name = row[0]
             date_str = row[1]
             
-            # Lấy dự đoán từ database
             cursor.execute('''
                 SELECT Temp, Temp_min, Temp_max, Pressure, Wind, Rain, Cloud, Gust
                 FROM system_forecasts
@@ -2091,7 +1907,6 @@ def api_comparison_history():
                     'Gust': forecast_row[7]
                 }
             
-            # Dữ liệu từ thoitiet360 (row có 12 cột: city, date, datetime, Temp, Temp_min, Temp_max, Pressure, Wind, Rain, Cloud, Gust, crawled_at)
             thoitiet360_data = {
                 'Temp': row[3],
                 'Temp_min': row[4] if len(row) > 4 else None,
@@ -2108,9 +1923,9 @@ def api_comparison_history():
                 'date': date_str,
                 'datetime': row[2],
                 'crawled_at': row[11] if len(row) > 11 else (row[9] if len(row) > 9 else None),
-                'system_forecast': system_forecast,  # Dữ liệu dự đoán từ hệ thống (đã lưu trong database)
-                'thoitiet360': thoitiet360_data,  # Dữ liệu từ thoitiet360.edu.vn
-                'difference': {  # Chênh lệch
+                'system_forecast': system_forecast,
+                'thoitiet360': thoitiet360_data,
+                'difference': {
                     'Temp': (system_forecast.get('Temp') - thoitiet360_data['Temp']) if system_forecast.get('Temp') is not None and thoitiet360_data['Temp'] is not None else None,
                     'Temp_min': (system_forecast.get('Temp_min') - thoitiet360_data['Temp_min']) if system_forecast.get('Temp_min') is not None and thoitiet360_data['Temp_min'] is not None else None,
                     'Temp_max': (system_forecast.get('Temp_max') - thoitiet360_data['Temp_max']) if system_forecast.get('Temp_max') is not None and thoitiet360_data['Temp_max'] is not None else None,
@@ -2285,9 +2100,6 @@ def admin_get_table_data(table_name):
 
 @app.route('/admin/api/cold-air', methods=['GET'])
 def admin_get_cold_air():
-    """Lấy mức độ không khí lạnh từ file config JSON
-    Returns: level (0=tắt, 1=nhẹ, 2=trung bình, 3=mạnh), sunny_day (0=không nắng, 1=nắng)
-    """
     config_file = 'cold_air_config.json'
     try:
         if os.path.exists(config_file):
@@ -2309,28 +2121,20 @@ def admin_get_cold_air():
 
 @app.route('/admin/api/cold-air', methods=['POST'])
 def admin_set_cold_air():
-    """Cập nhật mức độ không khí lạnh
-    level: 0=tắt, 1=nhẹ, 2=trung bình, 3=mạnh
-    sunny_day: 0=không nắng, 1=nắng (chỉ áp dụng khi level=1)
-    """
     try:
         data = request.json
         level = data.get('level', 0)
         sunny_day = data.get('sunny_day', 0)
         
-        # Kiểm tra tính hợp lệ của level
         if level not in [0, 1, 2, 3]:
             return jsonify({'error': 'Invalid level. Must be 0, 1, 2, or 3'}), 400
         
-        # Kiểm tra tính hợp lệ của sunny_day
         if sunny_day not in [0, 1]:
             return jsonify({'error': 'Invalid sunny_day. Must be 0 or 1'}), 400
         
-        # Nếu level không phải 1, đặt sunny_day = 0
         if level != 1:
             sunny_day = 0
         
-        # Lưu vào file config JSON
         config_file = 'cold_air_config.json'
         config = {
             'level': level,
