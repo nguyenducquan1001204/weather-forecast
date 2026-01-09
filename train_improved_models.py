@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Script để train tất cả các model cải tiến (Temp, Rain, Cloud, Pressure, Wind, Gust) với train/val/test split
-"""
 import pandas as pd
 import numpy as np
 import pickle
@@ -21,7 +18,6 @@ print("TRAINING TẤT CẢ CÁC MODEL CẢI TIẾN VỚI FEATURES NÂNG CAO")
 print("="*70)
 
 def load_and_preprocess_data(file_path=None):
-    """Tải dữ liệu từ database SQLite (fallback sang CSV nếu database không tồn tại)"""
     print("\n[1] Đang tải và tiền xử lý dữ liệu...")
     
     try:
@@ -38,7 +34,6 @@ def load_and_preprocess_data(file_path=None):
     except Exception as e:
         print(f"  ⚠ Lỗi khi tải từ database: {e}. Chuyển sang CSV...")
     
-    # Fallback sang CSV
     if file_path is None:
         file_path = 'weather_all_cities.csv'
     
@@ -46,7 +41,6 @@ def load_and_preprocess_data(file_path=None):
     df['datetime'] = pd.to_datetime(df['date'] + ' ' + df['Time'])
     df = df.sort_values(['city', 'datetime']).reset_index(drop=True)
     
-    # Làm sạch các cột
     df['Temp'] = df['Temp'].str.replace(' °c', '').str.replace('°c', '').astype(float)
     df['Rain'] = df['Rain'].str.replace('mm', '').astype(float)
     df['Cloud'] = df['Cloud'].str.replace('%', '').astype(float)
@@ -54,11 +48,9 @@ def load_and_preprocess_data(file_path=None):
     df['Wind'] = df['Wind'].str.replace(' km/h', '').astype(float)
     df['Gust'] = df['Gust'].str.replace(' km/h', '').astype(float)
     
-    # Mã hóa cột Dir (hướng gió) sang số
     dir_mapping = {'N': 0, 'NE': 1, 'E': 2, 'SE': 3, 'S': 4, 'SW': 5, 'W': 6, 'NW': 7}
     df['Dir'] = df['Dir'].map(dir_mapping).fillna(0).astype(int)
     
-    # Các feature cơ bản
     df['year'] = df['datetime'].dt.year
     df['month'] = df['datetime'].dt.month
     df['day'] = df['datetime'].dt.day
@@ -79,7 +71,6 @@ def load_and_preprocess_data(file_path=None):
     
     df['season'] = df['month'].apply(get_season)
     
-    # Mã hóa chu kỳ
     df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
     df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
     df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
@@ -87,7 +78,6 @@ def load_and_preprocess_data(file_path=None):
     df['day_of_year_sin'] = np.sin(2 * np.pi * df['day_of_year'] / 365)
     df['day_of_year_cos'] = np.cos(2 * np.pi * df['day_of_year'] / 365)
     
-    # Mã hóa thành phố
     city_dummies = pd.get_dummies(df['city'], prefix='city')
     all_cities = ['vinh', 'ha-noi', 'ho-chi-minh-city']
     for city in all_cities:
@@ -118,12 +108,7 @@ def split_data_by_time(df):
     
     return train_df_only, val_df, test_df
 
-# ============================================================================
-# PHẦN 1: TRAINING MODEL NHIỆT ĐỘ
-# ============================================================================
-
 def create_advanced_features_for_temp(train_df, val_df, test_df):
-    """Tạo features cho model Temp SAU KHI split, đảm bảo lag chỉ sử dụng dữ liệu quá khứ"""
     print(f"\n[PHẦN 1] Đang tạo các feature nâng cao cho model Temp...")
     
     train_df = train_df.copy()
@@ -132,7 +117,6 @@ def create_advanced_features_for_temp(train_df, val_df, test_df):
     
     target_col = 'Temp'
     
-    # Tạo features cho từng split riêng biệt
     for df_split, split_name in [(train_df, 'train'), (val_df, 'val'), (test_df, 'test')]:
         df_split = df_split.sort_values(['city', 'datetime']).reset_index(drop=True)
         
@@ -140,44 +124,34 @@ def create_advanced_features_for_temp(train_df, val_df, test_df):
             city_mask = df_split['city'] == city
             city_data = df_split[city_mask].copy().sort_values('datetime').reset_index(drop=True)
             
-            # 1. Lag features của nhiệt độ (chỉ dùng lag xa: 12, 24)
             for lag in [12, 24]:
                 df_split.loc[city_mask, f'{target_col}_lag_{lag}'] = city_data[target_col].shift(lag).values
             
-            # 2. Rolling features của nhiệt độ (chỉ dùng cửa sổ lớn: 12, 24)
             for window in [12, 24]:
                 df_split.loc[city_mask, f'{target_col}_rolling_mean_{window}'] = city_data[target_col].shift(1).rolling(window=window, min_periods=1).mean().values
                 df_split.loc[city_mask, f'{target_col}_rolling_std_{window}'] = city_data[target_col].shift(1).rolling(window=window, min_periods=1).std().fillna(0).values
                 df_split.loc[city_mask, f'{target_col}_rolling_max_{window}'] = city_data[target_col].shift(1).rolling(window=window, min_periods=1).max().values
                 df_split.loc[city_mask, f'{target_col}_rolling_min_{window}'] = city_data[target_col].shift(1).rolling(window=window, min_periods=1).min().values
             
-            # 3. Lag features của Pressure, Wind, Cloud
             for lag in [1, 3, 6, 12]:
                 df_split.loc[city_mask, f'Pressure_lag_{lag}'] = city_data['Pressure'].shift(lag).values
                 df_split.loc[city_mask, f'Wind_lag_{lag}'] = city_data['Wind'].shift(lag).values
                 df_split.loc[city_mask, f'Cloud_lag_{lag}'] = city_data['Cloud'].shift(lag).values
             
-            # 4. Rolling features của Pressure, Wind, Cloud (shift(1) để tránh leak)
             for window in [3, 6, 12, 24]:
                 df_split.loc[city_mask, f'Pressure_rolling_mean_{window}'] = city_data['Pressure'].shift(1).rolling(window=window, min_periods=1).mean().values
                 df_split.loc[city_mask, f'Wind_rolling_mean_{window}'] = city_data['Wind'].shift(1).rolling(window=window, min_periods=1).mean().values
                 df_split.loc[city_mask, f'Cloud_rolling_mean_{window}'] = city_data['Cloud'].shift(1).rolling(window=window, min_periods=1).mean().values
             
-            # 5. Features ngữ cảnh: cùng giờ các ngày trước (chỉ dùng quá khứ)
             city_data['hour'] = city_data['datetime'].dt.hour
-            # Cùng giờ 1 ngày trước (8 bản ghi mỗi ngày)
             df_split.loc[city_mask, f'{target_col}_same_hour_1d_ago'] = city_data.groupby('hour')[target_col].shift(8).values
-            # Cùng giờ 7 ngày trước
             df_split.loc[city_mask, f'{target_col}_same_hour_7d_ago'] = city_data.groupby('hour')[target_col].shift(7*8).values
-            # Trung bình cùng giờ 7 ngày gần nhất (chỉ dùng quá khứ)
-            df_split.loc[city_mask, f'{target_col}_same_hour_avg_7d'] = city_data.groupby('hour')[target_col].transform(lambda x: x.shift(1).rolling(window=7*8, min_periods=1).mean()).values
+                df_split.loc[city_mask, f'{target_col}_same_hour_avg_7d'] = city_data.groupby('hour')[target_col].transform(lambda x: x.shift(1).rolling(window=7*8, min_periods=1).mean()).values
         
-        # 6. Features tương tác
         df_split['hour_month_interaction'] = df_split['hour'] * df_split['month']
         df_split['pressure_wind_interaction'] = df_split['Pressure'] * df_split['Wind'] / 100
         df_split['cloud_hour_interaction'] = df_split['Cloud'] * df_split['hour'] / 100
         
-        # 7. Mã hóa thành phố (đã làm trong load_and_preprocess_data, nhưng đảm bảo nó tồn tại)
         city_dummies = pd.get_dummies(df_split['city'], prefix='city')
         all_cities = ['vinh', 'ha-noi', 'ho-chi-minh-city']
         for city in all_cities:
@@ -185,7 +159,6 @@ def create_advanced_features_for_temp(train_df, val_df, test_df):
             if col_name not in city_dummies.columns:
                 city_dummies[col_name] = 0
         
-        # Chỉ thêm nếu chưa có
         for col in city_dummies.columns:
             if col not in df_split.columns:
                 df_split[col] = city_dummies[col]
@@ -205,21 +178,16 @@ def train_improved_temp_model(train_df, val_df, test_df):
     
     target = 'Temp'
     
-    # Features cơ bản
     base_features = ['hour', 'month', 'day_of_year', 'day_of_week', 'season', 'is_weekend']
     
-    # Features tuần hoàn
     cyclical_features = ['hour_sin', 'hour_cos', 'month_sin', 'month_cos', 
                          'day_of_year_sin', 'day_of_year_cos']
     
-    # Features thời tiết
     weather_features = ['Rain', 'Cloud', 'Pressure', 
                        'Wind', 'Gust', 'Dir']
     
-    # Lag features của nhiệt độ (chỉ dùng lag xa: 12, 24)
     temp_lag_features = [f'{target}_lag_{lag}' for lag in [12, 24]]
     
-    # Rolling features của nhiệt độ (chỉ dùng cửa sổ lớn: 12, 24)
     temp_rolling_features = []
     for window in [12, 24]:
         temp_rolling_features.extend([
@@ -229,7 +197,6 @@ def train_improved_temp_model(train_df, val_df, test_df):
             f'{target}_rolling_min_{window}'
         ])
     
-    # Lag/rolling của Pressure, Wind, Cloud (không có rò rỉ dữ liệu)
     other_vars_lag_rolling = []
     for var in ['Pressure', 'Wind', 'Cloud']:
         for lag in [1, 3, 6, 12]:
@@ -237,30 +204,25 @@ def train_improved_temp_model(train_df, val_df, test_df):
         for window in [3, 6, 12, 24]:
             other_vars_lag_rolling.append(f'{var}_rolling_mean_{window}')
     
-    # Features ngữ cảnh
     context_features = [
         f'{target}_same_hour_1d_ago',
         f'{target}_same_hour_7d_ago',
         f'{target}_same_hour_avg_7d'
     ]
     
-    # Features tương tác
     interaction_features = [
         'hour_month_interaction',
         'pressure_wind_interaction',
         'cloud_hour_interaction'
     ]
     
-    # Features thành phố
     city_features = [col for col in train_df.columns if col.startswith('city_')]
     
-    # Kết hợp tất cả features
     all_features = (base_features + cyclical_features + weather_features + 
                    temp_lag_features + temp_rolling_features +
                    other_vars_lag_rolling + context_features + 
                    interaction_features + city_features)
     
-    # Lọc các features tồn tại trong dataframe
     feature_cols = [col for col in all_features if col in train_df.columns]
     
     print(f"  Sử dụng {len(feature_cols)} features")
@@ -274,7 +236,6 @@ def train_improved_temp_model(train_df, val_df, test_df):
     X_test = test_df[feature_cols].fillna(0)
     y_test = test_df[target]
     
-    # Tham số siêu
     model = XGBRegressor(
         n_estimators=200,
         max_depth=6,
@@ -292,17 +253,14 @@ def train_improved_temp_model(train_df, val_df, test_df):
     print("  Đang train model...")
     model.fit(X_train, y_train)
     
-    # Đánh giá
     y_pred_train = model.predict(X_train)
     y_pred_val = model.predict(X_val)
     y_pred_test = model.predict(X_test)
     
-    # Tính RMSE
     rmse_train = np.sqrt(mean_squared_error(y_train, y_pred_train))
     rmse_val = np.sqrt(mean_squared_error(y_val, y_pred_val))
     rmse_test = np.sqrt(mean_squared_error(y_test, y_pred_test))
     
-    # Tính MAPE
     def calculate_mape(y_true, y_pred):
         y_true = np.array(y_true)
         y_pred = np.array(y_pred)
@@ -320,7 +278,6 @@ def train_improved_temp_model(train_df, val_df, test_df):
     print(f"    Validation - R²: {r2_score(y_val, y_pred_val):.4f}, MAE: {mean_absolute_error(y_val, y_pred_val):.4f}, RMSE: {rmse_val:.4f}, MAPE: {mape_val:.2f}%")
     print(f"    Test       - R²: {r2_score(y_test, y_pred_test):.4f}, MAE: {mean_absolute_error(y_test, y_pred_test):.4f}, RMSE: {rmse_test:.4f}, MAPE: {mape_test:.2f}%")
     
-    # Tầm quan trọng của features
     feature_importance = pd.DataFrame({
         'feature': feature_cols,
         'importance': model.feature_importances_
@@ -350,19 +307,13 @@ def train_improved_temp_model(train_df, val_df, test_df):
         'test_mape': mape_test
     }
 
-# ============================================================================
-# PHẦN 2: TRAINING CÁC MODEL KHÁC (Rain, Cloud, Pressure, Wind, Gust)
-# ============================================================================
-
 def create_advanced_features_for_others(train_df, val_df, test_df):
-    """Tạo features cho các model khác SAU KHI split, đảm bảo lag chỉ sử dụng dữ liệu quá khứ"""
     print(f"\n[PHẦN 2] Đang tạo các feature nâng cao cho các model khác...")
     
     train_df = train_df.copy()
     val_df = val_df.copy()
     test_df = test_df.copy()
     
-    # Tạo features cho từng split riêng biệt
     splits = {'train': train_df, 'val': val_df, 'test': test_df}
     
     for split_name, df_split in splits.items():
@@ -372,39 +323,29 @@ def create_advanced_features_for_others(train_df, val_df, test_df):
             city_mask = df_split['city'] == city
             city_data = df_split[city_mask].copy().sort_values('datetime').reset_index(drop=True)
             
-            # 1. Lag features của Temp (chỉ dùng lag xa: 12, 24)
             for lag in [12, 24]:
                 df_split.loc[city_mask, f'Temp_lag_{lag}'] = city_data['Temp'].shift(lag).values
             
-            # 2. Rolling features của Temp (chỉ dùng cửa sổ lớn: 12, 24)
             for window in [12, 24]:
                 df_split.loc[city_mask, f'Temp_rolling_mean_{window}'] = city_data['Temp'].shift(1).rolling(window=window, min_periods=1).mean().values
                 df_split.loc[city_mask, f'Temp_rolling_std_{window}'] = city_data['Temp'].shift(1).rolling(window=window, min_periods=1).std().fillna(0).values
                 df_split.loc[city_mask, f'Temp_rolling_max_{window}'] = city_data['Temp'].shift(1).rolling(window=window, min_periods=1).max().values
                 df_split.loc[city_mask, f'Temp_rolling_min_{window}'] = city_data['Temp'].shift(1).rolling(window=window, min_periods=1).min().values
             
-            # 3. Lag features của Pressure, Wind, Cloud, Rain
-            # Tạo tất cả lag features - sẽ lọc theo từng model khi huấn luyện
             for var in ['Pressure', 'Wind', 'Cloud', 'Rain']:
                 for lag in [1, 3, 6, 12, 24]:
                     df_split.loc[city_mask, f'{var}_lag_{lag}'] = city_data[var].shift(lag).values
             
-            # 4. Rolling features của Pressure, Wind, Cloud, Rain
             for var in ['Pressure', 'Wind', 'Cloud', 'Rain']:
                 for window in [3, 6, 12, 24]:
                     df_split.loc[city_mask, f'{var}_rolling_mean_{window}'] = city_data[var].shift(1).rolling(window=window, min_periods=1).mean().values
-                    # Thêm rolling_max cho tất cả biến (không chỉ Rain, Cloud)
                     df_split.loc[city_mask, f'{var}_rolling_max_{window}'] = city_data[var].shift(1).rolling(window=window, min_periods=1).max().values
         
-        # Features nhị phân cho Rain (has_rain)
-        # Chỉ tạo has_rain_lag_1 (bỏ qua lag_3, lag_6 cho một số model - sẽ lọc khi huấn luyện)
         df_split['has_rain'] = (df_split['Rain'] > 0).astype(int)
         df_split['has_rain_lag_1'] = df_split['has_rain'].shift(1).fillna(0).astype(int)
-        # Tạo lag_3 và lag_6 nhưng sẽ lọc theo từng model
         df_split['has_rain_lag_3'] = df_split['has_rain'].shift(3).fillna(0).astype(int)
         df_split['has_rain_lag_6'] = df_split['has_rain'].shift(6).fillna(0).astype(int)
         
-        # Features tương tác
         df_split['hour_month_interaction'] = df_split['hour'] * df_split['month']
         df_split['pressure_wind_interaction'] = df_split['Pressure'] * df_split['Wind'] / 100
         df_split['cloud_hour_interaction'] = df_split['Cloud'] * df_split['hour'] / 100
@@ -412,7 +353,6 @@ def create_advanced_features_for_others(train_df, val_df, test_df):
         df_split['rain_cloud_interaction'] = df_split['Rain'] * df_split['Cloud'] / 100
         df_split['temp_pressure_interaction'] = df_split['Temp'] * df_split['Pressure'] / 100
         
-        # Features ngữ cảnh của Temp
         for city in df_split['city'].unique():
             city_mask = df_split['city'] == city
             city_data = df_split[city_mask].copy().sort_values('datetime').reset_index(drop=True)
@@ -422,18 +362,14 @@ def create_advanced_features_for_others(train_df, val_df, test_df):
             df_split.loc[city_mask, 'Temp_same_hour_7d_ago'] = city_data.groupby('hour')['Temp'].shift(7*8).values
             df_split.loc[city_mask, 'Temp_same_hour_avg_7d'] = city_data.groupby('hour')['Temp'].transform(lambda x: x.shift(1).rolling(window=7*8, min_periods=1).mean()).values
         
-        # Features ngữ cảnh của Rain (cùng giờ các ngày trước)
         for city in df_split['city'].unique():
             city_mask = df_split['city'] == city
             city_data = df_split[city_mask].copy().sort_values('datetime').reset_index(drop=True)
             city_data['hour'] = city_data['datetime'].dt.hour
             
             df_split.loc[city_mask, 'Rain_same_hour_1d_ago'] = city_data.groupby('hour')['Rain'].shift(8).values
-            # Bỏ qua Rain_same_hour_7d_ago cho model Pressure (tầm quan trọng thấp)
-            # df_split.loc[city_mask, 'Rain_same_hour_7d_ago'] = city_data.groupby('hour')['Rain'].shift(7*8).values
             df_split.loc[city_mask, 'Rain_same_hour_avg_7d'] = city_data.groupby('hour')['Rain'].transform(lambda x: x.shift(1).rolling(window=7*8, min_periods=1).mean()).values
         
-        # Features ngữ cảnh của Cloud (cùng giờ các ngày trước)
         for city in df_split['city'].unique():
             city_mask = df_split['city'] == city
             city_data = df_split[city_mask].copy().sort_values('datetime').reset_index(drop=True)
@@ -443,7 +379,6 @@ def create_advanced_features_for_others(train_df, val_df, test_df):
             df_split.loc[city_mask, 'Cloud_same_hour_7d_ago'] = city_data.groupby('hour')['Cloud'].shift(7*8).values
             df_split.loc[city_mask, 'Cloud_same_hour_avg_7d'] = city_data.groupby('hour')['Cloud'].transform(lambda x: x.shift(1).rolling(window=7*8, min_periods=1).mean()).values
         
-        # Cập nhật splits
         splits[split_name] = df_split
     
     print(f"  ✓ Đã tạo các feature nâng cao cho các model khác")
@@ -458,117 +393,84 @@ def train_improved_other_models(train_df, val_df, test_df):
     for target in target_vars:
         print(f"\n  Đang train model {target}...")
         
-        # Features cơ bản
-        # Loại bỏ is_weekend cho model Gust (tầm quan trọng thấp)
         base_features = ['hour', 'month', 'day_of_year', 'day_of_week', 'season', 'is_weekend']
         if target == 'Gust':
             base_features = ['hour', 'month', 'day_of_year', 'day_of_week', 'season']
         
-        # Features tuần hoàn
         cyclical_features = ['hour_sin', 'hour_cos', 'month_sin', 'month_cos', 
                              'day_of_year_sin', 'day_of_year_cos']
         
-        # Features thời tiết (loại trừ target chính nó)
         weather_features = ['Temp', 'Rain', 'Cloud', 'Pressure', 'Wind', 'Gust', 'Dir']
         weather_features = [f for f in weather_features if f != target]
         
-        # Lag/rolling của Temp (không dùng lag/rolling của target chính nó)
         temp_lag_features = ['Temp_lag_12', 'Temp_lag_24']
         temp_rolling_features = ['Temp_rolling_mean_12', 'Temp_rolling_std_12', 
                                  'Temp_rolling_max_12', 'Temp_rolling_min_12',
                                  'Temp_rolling_mean_24', 'Temp_rolling_std_24',
                                  'Temp_rolling_max_24', 'Temp_rolling_min_24']
         
-        # Lag/rolling của Pressure, Wind, Cloud, Rain
-        # Cho target chính nó, chúng ta có thể dùng lag/rolling (đã shift trong quá trình tạo features)
         other_vars_lag_rolling = []
         for var in ['Pressure', 'Wind', 'Cloud', 'Rain']:
             if var != target:
-                # Sử dụng lag/rolling của các biến khác
-                # Loại bỏ lag features tầm quan trọng thấp cho model Pressure
                 if target == 'Pressure':
                     if var == 'Wind':
-                        # Chỉ lag 1, 24 (loại bỏ 3, 6, 12)
                         for lag in [1, 24]:
                             other_vars_lag_rolling.append(f'{var}_lag_{lag}')
                     elif var == 'Cloud':
-                        # Chỉ lag 1, 3 (loại bỏ 6, 12, 24)
                         for lag in [1, 3]:
                             other_vars_lag_rolling.append(f'{var}_lag_{lag}')
                     elif var == 'Rain':
-                        # Chỉ lag 1, 24 (loại bỏ 3, 6, 12)
                         for lag in [1, 24]:
                             other_vars_lag_rolling.append(f'{var}_lag_{lag}')
                     else:
-                        # Biến Pressure: giữ tất cả lags
                         for lag in [1, 3, 6, 12, 24]:
                             other_vars_lag_rolling.append(f'{var}_lag_{lag}')
                 else:
-                    # Cho các model khác, sử dụng tất cả lags
                     for lag in [1, 3, 6, 12, 24]:
                         other_vars_lag_rolling.append(f'{var}_lag_{lag}')
                 
-                # Rolling features (giống nhau cho tất cả - bây giờ bao gồm rolling_max cho tất cả biến)
                 for window in [3, 6, 12, 24]:
                     other_vars_lag_rolling.append(f'{var}_rolling_mean_{window}')
                     other_vars_lag_rolling.append(f'{var}_rolling_max_{window}')
             else:
-                # Cho target chính nó, sử dụng lag/rolling (đã shift, không có rò rỉ dữ liệu)
-                # TẤT CẢ các model bây giờ sử dụng lag/rolling features của chính nó (CÁCH MỚI)
                 for lag in [1, 3, 6, 12, 24]:
                     other_vars_lag_rolling.append(f'{target}_lag_{lag}')
                 for window in [3, 6, 12, 24]:
                     other_vars_lag_rolling.append(f'{target}_rolling_mean_{window}')
                     other_vars_lag_rolling.append(f'{target}_rolling_max_{window}')
         
-        # Features ngữ cảnh của Temp
         context_features = ['Temp_same_hour_1d_ago', 'Temp_same_hour_7d_ago', 'Temp_same_hour_avg_7d']
         
-        # Features ngữ cảnh của Rain (cho tất cả model trừ Rain chính nó)
         if target != 'Rain':
-            # Bỏ qua Rain_same_hour_7d_ago cho Pressure (tầm quan trọng thấp)
             if target == 'Pressure':
                 context_features.extend(['Rain_same_hour_1d_ago', 'Rain_same_hour_avg_7d'])
             else:
                 context_features.extend(['Rain_same_hour_1d_ago', 'Rain_same_hour_7d_ago', 'Rain_same_hour_avg_7d'])
         
-        # Features ngữ cảnh của Cloud (cho tất cả model trừ Cloud chính nó)
         if target != 'Cloud':
             context_features.extend(['Cloud_same_hour_1d_ago', 'Cloud_same_hour_7d_ago', 'Cloud_same_hour_avg_7d'])
         
-        # Đặc biệt: Cho model Rain, thêm features ngữ cảnh của chính nó (chỉ dùng dữ liệu quá khứ)
         if target == 'Rain':
             context_features.extend(['Rain_same_hour_1d_ago', 'Rain_same_hour_7d_ago', 'Rain_same_hour_avg_7d'])
         
-        # Đặc biệt: Cho model Cloud, thêm features ngữ cảnh của chính nó (chỉ dùng dữ liệu quá khứ)
         if target == 'Cloud':
             context_features.extend(['Cloud_same_hour_1d_ago', 'Cloud_same_hour_7d_ago', 'Cloud_same_hour_avg_7d'])
     
-    # Features nhị phân cho Rain (hữu ích cho tất cả model)
-    # Loại bỏ các features không sử dụng dựa trên phân tích tầm quan trọng
         if target == 'Pressure':
-            # has_rain_lag_1 có tầm quan trọng = 0
             rain_binary_features = ['has_rain_lag_3', 'has_rain_lag_6']
         elif target == 'Rain':
-            # has_rain_lag_6 có tầm quan trọng = 0, has_rain_lag_3 < 0.001
             rain_binary_features = ['has_rain_lag_1']
         elif target == 'Gust':
-            # has_rain_lag_1, has_rain_lag_6 < 0.001
             rain_binary_features = ['has_rain_lag_3']
         elif target == 'Wind':
-            # has_rain_lag_3 < 0.001
             rain_binary_features = ['has_rain_lag_1', 'has_rain_lag_6']
         else:
-            # Cloud giữ tất cả features nhị phân
             rain_binary_features = ['has_rain_lag_1', 'has_rain_lag_3', 'has_rain_lag_6']
         
-        # Loại bỏ các lag features không sử dụng cho mỗi model
         features_to_remove = []
         if target == 'Pressure':
-            # Loại bỏ Rain_same_hour_7d_ago (tầm quan trọng thấp)
             features_to_remove.append('Rain_same_hour_7d_ago')
         
-        # Features tương tác (loại trừ nếu chứa target để tránh rò rỉ dữ liệu)
         all_interaction_features = {
             'hour_month_interaction': ['hour', 'month'],
             'pressure_wind_interaction': ['Pressure', 'Wind'],
@@ -583,23 +485,19 @@ def train_improved_other_models(train_df, val_df, test_df):
             if target not in vars_in_inter:
                 interaction_features.append(inter_name)
         
-        # Features thành phố
         city_features = [col for col in train_df.columns if col.startswith('city_')]
         
-        # Kết hợp features
         all_features = (base_features + cyclical_features + weather_features + 
                        temp_lag_features + temp_rolling_features +
                        other_vars_lag_rolling + context_features + 
                        rain_binary_features + interaction_features + city_features)
         
-        # Loại bỏ các features không sử dụng
         all_features = [f for f in all_features if f not in features_to_remove]
         
         feature_cols = [col for col in all_features if col in train_df.columns]
         
         print(f"    Sử dụng {len(feature_cols)} features")
         
-        # Loại bỏ các dòng có NaN
         train_df_clean = train_df.dropna(subset=[target]).copy()
         if 'Temp_lag_24' in train_df_clean.columns:
             train_df_clean = train_df_clean[train_df_clean['Temp_lag_24'].notna()].copy()
@@ -625,9 +523,7 @@ def train_improved_other_models(train_df, val_df, test_df):
         X_test = test_df_clean[feature_cols].fillna(0)
         y_test = test_df_clean[target]
         
-        # Tham số siêu - điều chỉnh cho Rain và Cloud
         if target == 'Rain':
-            # Rain khó dự đoán hơn, sử dụng nhiều cây hơn và điều chỉnh
             model = XGBRegressor(
                 n_estimators=300,
                 max_depth=5,
@@ -642,7 +538,6 @@ def train_improved_other_models(train_df, val_df, test_df):
                 n_jobs=-1
             )
         elif target == 'Cloud':
-            # Cloud cần nhiều khả năng học hơn
             model = XGBRegressor(
                 n_estimators=250,
                 max_depth=6,
@@ -657,7 +552,6 @@ def train_improved_other_models(train_df, val_df, test_df):
                 n_jobs=-1
             )
         else:
-            # Tham số siêu mặc định cho các model khác
             model = XGBRegressor(
                 n_estimators=200,
                 max_depth=6,
@@ -675,17 +569,14 @@ def train_improved_other_models(train_df, val_df, test_df):
         print("    Đang train model...")
         model.fit(X_train, y_train)
         
-        # Đánh giá
         y_pred_train = model.predict(X_train)
         y_pred_val = model.predict(X_val)
         y_pred_test = model.predict(X_test)
         
-        # Tính RMSE
         rmse_train = np.sqrt(mean_squared_error(y_train, y_pred_train))
         rmse_val = np.sqrt(mean_squared_error(y_val, y_pred_val))
         rmse_test = np.sqrt(mean_squared_error(y_test, y_pred_test))
         
-        # Tính MAPE
         def calculate_mape(y_true, y_pred):
             y_true = np.array(y_true)
             y_pred = np.array(y_pred)
@@ -730,26 +621,18 @@ def train_improved_other_models(train_df, val_df, test_df):
 # ============================================================================
 
 if __name__ == '__main__':
-    # Tải dữ liệu
     df = load_and_preprocess_data()
     
-    # Chia dữ liệu TRƯỚC
     train_df, val_df, test_df = split_data_by_time(df)
     
-    # ========================================================================
-    # PHẦN 1: Huấn luyện Model Temp
-    # ========================================================================
     print("\n" + "="*70)
     print("PHẦN 1: MODEL NHIỆT ĐỘ")
     print("="*70)
     
-    # Tạo features nâng cao cho model Temp
     train_df_temp, val_df_temp, test_df_temp = create_advanced_features_for_temp(train_df.copy(), val_df.copy(), test_df.copy())
     
-    # Huấn luyện model Temp
     temp_result = train_improved_temp_model(train_df_temp, val_df_temp, test_df_temp)
     
-    # Lưu model Temp
     print("\n[PHẦN 1] Đang lưu model Temp...")
     try:
         with open('weather_models_improved.pkl', 'rb') as f:
@@ -765,20 +648,14 @@ if __name__ == '__main__':
     
     print("  ✓ Đã lưu model Temp vào weather_models_improved.pkl")
     
-    # ========================================================================
-    # PHẦN 2: Huấn luyện Các Model Khác (Rain, Cloud, Pressure, Wind, Gust)
-    # ========================================================================
     print("\n" + "="*70)
     print("PHẦN 2: CÁC MODEL KHÁC (Rain, Cloud, Pressure, Wind, Gust)")
     print("="*70)
     
-    # Tạo features nâng cao cho các model khác
     train_df_others, val_df_others, test_df_others = create_advanced_features_for_others(train_df.copy(), val_df.copy(), test_df.copy())
     
-    # Huấn luyện các model khác
     other_results = train_improved_other_models(train_df_others, val_df_others, test_df_others)
     
-    # Lưu các model khác
     print("\n[PHẦN 2] Đang lưu các model khác...")
     try:
         with open('weather_models_improved.pkl', 'rb') as f:
@@ -795,9 +672,6 @@ if __name__ == '__main__':
     
     print("  ✓ Đã lưu các model khác vào weather_models_improved.pkl")
     
-    # ========================================================================
-    # TÓM TẮT
-    # ========================================================================
     print("\n" + "="*70)
     print("TÓM TẮT - KẾT QUẢ TEST SET")
     print("="*70)

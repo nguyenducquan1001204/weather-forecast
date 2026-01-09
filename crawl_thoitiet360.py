@@ -1,7 +1,3 @@
-"""
-Script crawl và tiền xử lý dữ liệu dự báo thời tiết từ thoitiet360.edu.vn
-Để so sánh với dự đoán của hệ thống
-"""
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -17,11 +13,9 @@ if sys.platform == 'win32':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
-# Lấy thư mục nơi script này được đặt
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def check_and_pull_from_github():
-    """Kiểm tra và pull cập nhật từ GitHub nếu có"""
     print("="*70)
     print("KIEM TRA CAP NHAT TU GITHUB")
     print("="*70)
@@ -29,10 +23,8 @@ def check_and_pull_from_github():
     print(f"  Thư mục làm việc: {SCRIPT_DIR}")
     
     try:
-        # Chuyển đến thư mục script để đảm bảo đúng vị trí
         os.chdir(SCRIPT_DIR)
         
-        # Lấy các thay đổi mới nhất
         result = subprocess.run(
             ['git', 'fetch', 'origin', 'main'],
             capture_output=True,
@@ -44,7 +36,6 @@ def check_and_pull_from_github():
             print(f"  ⚠️  Không thể fetch từ GitHub (có thể không phải git repo): {result.stderr[:100]}")
             return False
         
-        # Kiểm tra xem có commit mới không
         result = subprocess.run(
             ['git', 'rev-list', '--count', 'HEAD..origin/main'],
             capture_output=True,
@@ -61,7 +52,6 @@ def check_and_pull_from_github():
         if commits_behind > 0:
             print(f"  📥 Tìm thấy {commits_behind} commit(s) mới. Đang pull cập nhật...")
             
-            # Pull các thay đổi
             result = subprocess.run(
                 ['git', 'pull', 'origin', 'main'],
                 capture_output=True,
@@ -84,14 +74,12 @@ def check_and_pull_from_github():
         print(f"  ⚠️  Lỗi khi kiểm tra GitHub: {str(e)[:100]}")
         return False
 
-# Mapping thành phố
 CITY_MAPPING = {
     'ha-noi': 'Hà Nội',
     'vinh': 'Vinh',
     'ho-chi-minh': 'Hồ Chí Minh'
 }
 
-# URL mapping
 CITY_URLS = {
     'ha-noi': 'https://thoitiet360.edu.vn/ha-noi/3-ngay-toi',
     'vinh': 'https://thoitiet360.edu.vn/nghe-an/vinh/3-ngay-toi',
@@ -99,65 +87,45 @@ CITY_URLS = {
 }
 
 def parse_temperature(temp_str):
-    """Parse nhiệt độ từ string (ví dụ: "14°" -> 14.0)"""
     if not temp_str:
         return None
     try:
-        # Loại bỏ ký tự ° và khoảng trắng
         temp_str = temp_str.replace('°', '').replace('°C', '').strip()
         return float(temp_str)
     except:
         return None
 
 def parse_pressure(pressure_str):
-    """Parse áp suất từ string (ví dụ: "1028 hPa" -> 1028.0)"""
     if not pressure_str:
         return None
     try:
-        # Loại bỏ "hPa" và khoảng trắng
         pressure_str = pressure_str.replace('hPa', '').strip()
         return float(pressure_str)
     except:
         return None
 
 def parse_wind(wind_str):
-    """Parse gió từ string (ví dụ: "6.92 km/h" -> 6.92)"""
     if not wind_str:
         return None
     try:
-        # Loại bỏ "km/h" và khoảng trắng
         wind_str = wind_str.replace('km/h', '').strip()
         return float(wind_str)
     except:
         return None
 
 def parse_rain(rain_str):
-    """Parse lượng mưa từ string (ví dụ: "0 mm" -> 0.0)"""
     if not rain_str:
         return None
     try:
-        # Loại bỏ "mm" và khoảng trắng
         rain_str = rain_str.replace('mm', '').strip()
         return float(rain_str)
     except:
         return None
 
 def parse_cloud(cloud_str):
-    """Parse mây từ string (có thể là text mô tả)"""
-    # Thoitiet360 có thể không có % mây, chỉ có mô tả
-    # Trả về None nếu không parse được
     return None
 
 def crawl_thoitiet360(city_key='ha-noi'):
-    """
-    Crawl dữ liệu dự báo ngày hôm nay từ thoitiet360.edu.vn
-    
-    Args:
-        city_key: 'ha-noi', 'vinh', hoặc 'ho-chi-minh'
-    
-    Returns:
-        List of dicts với dữ liệu dự báo ngày hôm nay
-    """
     url = CITY_URLS.get(city_key)
     if not url:
         print(f"⚠️  Không tìm thấy URL cho thành phố: {city_key}")
@@ -166,9 +134,8 @@ def crawl_thoitiet360(city_key='ha-noi'):
     print(f"\n🔍 Đang crawl dữ liệu từ thoitiet360.edu.vn cho {CITY_MAPPING.get(city_key, city_key)}...")
     print(f"   URL: {url}")
     
-    # Retry logic: thử lại tối đa 3 lần
     max_retries = 3
-    retry_delay = 2  # Nghỉ 2 giây giữa các lần thử
+    retry_delay = 2
     
     for attempt in range(max_retries):
         try:
@@ -179,7 +146,6 @@ def crawl_thoitiet360(city_key='ha-noi'):
                 'Connection': 'keep-alive'
             }
             
-            # Sử dụng session để giữ kết nối
             session = requests.Session()
             response = session.get(url, headers=headers, timeout=30)
             response.encoding = 'utf-8'
@@ -193,7 +159,6 @@ def crawl_thoitiet360(city_key='ha-noi'):
                     print(f"❌ Lỗi: HTTP {response.status_code} sau {max_retries} lần thử")
                     return []
             
-            # Thành công, thoát khỏi vòng lặp retry
             break
             
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, 
@@ -217,52 +182,42 @@ def crawl_thoitiet360(city_key='ha-noi'):
         forecast_data = []
         today = datetime.now().date()
         
-        # Tìm tất cả các heading có chứa pattern ngày (T2-T7, CN, hoặc số ngày/tháng)
         date_pattern = re.compile(r'(T[2-7]|CN|Chủ nhật|Thứ [2-7])\s*\d{1,2}/\d{1,2}', re.IGNORECASE)
         
         found_days = []
         
-        # Tìm tất cả các phần tử có chứa pattern ngày
         all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'section', 'article'])
         
         for element in all_elements:
             text = element.get_text()
             
-            # Kiểm tra xem có chứa pattern ngày không
             if date_pattern.search(text):
-                # Tìm nhiệt độ trong phần tử này (lấy số đầu tiên hợp lý)
                 temp_matches = re.findall(r'(\d+)\s*°', text)
                 main_temp = None
                 if temp_matches:
                     for temp in temp_matches:
                         temp_val = int(temp)
-                        # Nhiệt độ hợp lý cho Việt Nam: 0-50°C
                         if 0 <= temp_val <= 50:
                             main_temp = temp
                             break
                 
                 if main_temp:
-                    # Tìm các thông số khác
                     pressure_matches = re.findall(r'(\d{3,4})\s*hPa', text)
                     wind_matches = re.findall(r'(\d+\.?\d*)\s*km/h', text)
                     rain_matches = re.findall(r'(\d+\.?\d*)\s*mm', text)
                     
-                    # Tìm nhiệt độ thấp/cao (pattern: "14.8°/18.7°" hoặc "Thấp/Cao: 14.8°/18.7°")
                     temp_min_max_pattern = re.findall(r'(\d+\.?\d*)\s*°\s*/\s*(\d+\.?\d*)\s*°', text)
                     temp_min = None
                     temp_max = None
                     if temp_min_max_pattern:
-                        # Lấy cặp đầu tiên tìm được
                         temp_min = temp_min_max_pattern[0][0]
                         temp_max = temp_min_max_pattern[0][1]
                     else:
-                        # Thử pattern khác: "Thấp/Cao: 14.8°/18.7°"
                         temp_min_max_pattern2 = re.findall(r'Thấp[^:]*:\s*(\d+\.?\d*)\s*°[^/]*/\s*Cao[^:]*:\s*(\d+\.?\d*)\s*°', text, re.IGNORECASE)
                         if temp_min_max_pattern2:
                             temp_min = temp_min_max_pattern2[0][0]
                             temp_max = temp_min_max_pattern2[0][1]
                         else:
-                            # Thử tìm trong phần tử cha hoặc các phần tử liên quan
                             parent = element.find_parent()
                             if parent:
                                 parent_text = parent.get_text()
@@ -271,7 +226,6 @@ def crawl_thoitiet360(city_key='ha-noi'):
                                     temp_min = temp_min_max_pattern3[0][0]
                                     temp_max = temp_min_max_pattern3[0][1]
                     
-                    # Kiểm tra xem đã có ngày này chưa (tránh trùng lặp)
                     day_key = f"{main_temp}_{pressure_matches[0] if pressure_matches else 'none'}"
                     if day_key not in [d.get('key', '') for d in found_days]:
                         found_days.append({
@@ -285,20 +239,17 @@ def crawl_thoitiet360(city_key='ha-noi'):
                             'text': text[:200]
                         })
         
-        # Chỉ lấy ngày hôm nay (ngày đầu tiên)
         found_days = found_days[:1]
         
         print(f"   Tìm thấy {len(found_days)} ngày dự báo (chỉ lấy hôm nay)")
         
-        # Tạo record cho ngày hôm nay
         for idx, day_data in enumerate(found_days):
-            forecast_date = today  # Chỉ lấy ngày hôm nay
+            forecast_date = today
             
-            # Làm sạch raw_text: thay thế ký tự xuống dòng bằng khoảng trắng
             raw_text = day_data.get('text', '')
             raw_text = raw_text.replace('\n', ' ').replace('\r', ' ').strip()
-            raw_text = ' '.join(raw_text.split())  # Loại bỏ khoảng trắng thừa
-            raw_text = raw_text[:100]  # Giới hạn 100 ký tự
+            raw_text = ' '.join(raw_text.split())
+            raw_text = raw_text[:100]
             
             record = {
                 'city': CITY_MAPPING.get(city_key, city_key),
@@ -322,11 +273,8 @@ def crawl_thoitiet360(city_key='ha-noi'):
                 temp_info += f" (Thấp/Cao: {record['Temp_min']}°C/{record['Temp_max']}°C)"
             print(f"   ✓ Ngày {forecast_date.strftime('%Y-%m-%d')}: {temp_info}, Pressure={record['Pressure']}hPa, Wind={record['Wind']}km/h, Rain={record['Rain']}mm")
         
-        # Nếu không parse được bằng cách trên, thử cách khác
         if not forecast_data:
             print("   ⚠️  Không parse được dữ liệu bằng cách thông thường, thử cách khác...")
-            
-            # In ra một phần HTML để debug
             print(f"   HTML sample (first 1000 chars): {response.text[:1000]}")
         
         return forecast_data
@@ -336,18 +284,8 @@ def crawl_thoitiet360(city_key='ha-noi'):
         return []
 
 def preprocess_thoitiet360_data(df):
-    """
-    Tiền xử lý dữ liệu từ thoitiet360 để so sánh (không cần các cột cho training)
-    
-    Args:
-        df: DataFrame từ crawl_thoitiet360
-    
-    Returns:
-        DataFrame đã được tiền xử lý, chỉ giữ các cột cần thiết để so sánh
-    """
     df = df.copy()
     
-    # 1. Mapping tên thành phố sang format database
     city_mapping = {
         'Hà Nội': 'ha-noi',
         'Vinh': 'vinh',
@@ -357,12 +295,10 @@ def preprocess_thoitiet360_data(df):
     if 'city' in df.columns:
         df['city'] = df['city'].map(city_mapping).fillna(df['city'])
     
-    # 2. Tạo datetime từ date (mặc định 00:00:00)
     if 'date' in df.columns:
         df['datetime'] = pd.to_datetime(df['date'] + ' 00:00:00')
         df['datetime'] = df['datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
     
-    # 3. Đảm bảo các cột số là numeric
     numeric_cols = ['Temp', 'Temp_min', 'Temp_max', 'Pressure', 'Wind', 'Rain', 'Cloud', 'Gust']
     for col in numeric_cols:
         if col in df.columns:
@@ -370,31 +306,26 @@ def preprocess_thoitiet360_data(df):
         else:
             df[col] = None
     
-    # 4. Chỉ giữ lại các cột cần thiết để so sánh
     columns_to_keep = ['city', 'date', 'datetime', 'Temp', 'Temp_min', 'Temp_max', 'Pressure', 'Wind', 'Rain', 'Cloud', 'Gust']
     columns_to_keep = [col for col in columns_to_keep if col in df.columns]
     df = df[columns_to_keep]
     
-    # 5. Loại bỏ các cột không cần thiết
     columns_to_drop = ['raw_text', 'city_key', 'source', 'crawled_at', 'Time']
     for col in columns_to_drop:
         if col in df.columns:
             df = df.drop(columns=[col])
     
-    # 6. Sắp xếp theo city và date
     if 'city' in df.columns and 'date' in df.columns:
         df = df.sort_values(['city', 'date']).reset_index(drop=True)
     
     return df
 
 def save_to_csv(data, filename='thoitiet360_data.csv'):
-    """Lưu dữ liệu gốc vào file CSV (giữ lại dữ liệu cũ)"""
     try:
         if not data:
             print("⚠️  Không có dữ liệu để lưu")
             return
         
-        # Đọc dữ liệu cũ từ CSV (nếu có)
         df_old = pd.DataFrame()
         import os
         if os.path.exists(filename):
@@ -405,36 +336,29 @@ def save_to_csv(data, filename='thoitiet360_data.csv'):
                 print(f"⚠️  Không thể đọc file cũ: {str(e)}")
                 df_old = pd.DataFrame()
         
-        # Tạo DataFrame từ dữ liệu mới
         df_new = pd.DataFrame(data)
         if 'raw_text' in df_new.columns:
             df_new['raw_text'] = df_new['raw_text'].astype(str).str.replace('\n', ' ').str.replace('\r', ' ').str.strip()
             df_new['raw_text'] = df_new['raw_text'].str[:100]
         
-        # Gộp dữ liệu cũ và mới
         if not df_old.empty:
             df_combined = pd.concat([df_old, df_new], ignore_index=True)
-            # Loại bỏ trùng lặp (dựa trên city, date) - giữ lại bản mới nhất
             df_combined = df_combined.drop_duplicates(subset=['city', 'date'], keep='last')
-            # Sắp xếp theo city và date
             df_combined = df_combined.sort_values(['city', 'date']).reset_index(drop=True)
             df_final = df_combined
         else:
             df_final = df_new
         
-        # Lưu lại toàn bộ
         df_final.to_csv(filename, index=False, encoding='utf-8-sig')
         print(f"✅ Đã lưu {len(df_final)} records vào {filename} (trong đó {len(df_new)} records mới)")
     except Exception as e:
         print(f"❌ Lỗi khi lưu CSV: {str(e)}")
 
 def save_to_database(df):
-    """Lưu dữ liệu vào database"""
     try:
         from database import init_database, get_db_connection
         import os
         
-        # Khởi tạo database
         init_database()
         
         conn = get_db_connection()
@@ -444,7 +368,6 @@ def save_to_database(df):
         updated = 0
         
         for _, row in df.iterrows():
-            # Kiểm tra xem đã có record chưa (dựa trên city và date)
             cursor.execute('''
                 SELECT id FROM thoitiet360_data 
                 WHERE city = ? AND date = ?
@@ -453,7 +376,6 @@ def save_to_database(df):
             existing = cursor.fetchone()
             
             if existing:
-                # Update record đã tồn tại
                 cursor.execute('''
                     UPDATE thoitiet360_data 
                     SET datetime = ?, Temp = ?, Temp_min = ?, Temp_max = ?, Pressure = ?, Wind = ?, Rain = ?, Cloud = ?, Gust = ?
@@ -473,7 +395,6 @@ def save_to_database(df):
                 ))
                 updated += 1
             else:
-                # Insert record mới
                 cursor.execute('''
                     INSERT INTO thoitiet360_data 
                     (city, date, datetime, Temp, Temp_min, Temp_max, Pressure, Wind, Rain, Cloud, Gust)
@@ -506,8 +427,6 @@ def save_to_database(df):
         return 0
 
 def main():
-    """Crawl dữ liệu cho tất cả các thành phố"""
-    # Kiểm tra và pull cập nhật từ GitHub trước
     check_and_pull_from_github()
     
     print("\n" + "="*70)
@@ -523,27 +442,22 @@ def main():
         data = crawl_thoitiet360(city_key)
         all_data.extend(data)
         
-        # Nghỉ giữa các request để tránh bị chặn
         if idx < len(cities):
-            time.sleep(3)  # Nghỉ 3 giây giữa các thành phố
+            time.sleep(3)
     
     print(f"\n{'='*70}")
     print(f"TỔNG KẾT: Crawl được {len(all_data)} records")
     print(f"{'='*70}")
     
     if all_data:
-        # Tiền xử lý dữ liệu
         df = pd.DataFrame(all_data)
         df_processed = preprocess_thoitiet360_data(df)
         
-        # Lưu vào CSV (file gốc)
         save_to_csv(all_data, 'thoitiet360_data.csv')
         
-        # Lưu vào database
         print("\n💾 Đang lưu vào database...")
         save_to_database(df_processed)
         
-        # Hiển thị summary
         print("\n📊 Tóm tắt dữ liệu:")
         if not df.empty:
             print(df.groupby('city').size())
