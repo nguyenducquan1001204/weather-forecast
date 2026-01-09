@@ -146,7 +146,7 @@ def create_advanced_features_for_temp(train_df, val_df, test_df):
             city_data['hour'] = city_data['datetime'].dt.hour
             df_split.loc[city_mask, f'{target_col}_same_hour_1d_ago'] = city_data.groupby('hour')[target_col].shift(8).values
             df_split.loc[city_mask, f'{target_col}_same_hour_7d_ago'] = city_data.groupby('hour')[target_col].shift(7*8).values
-                df_split.loc[city_mask, f'{target_col}_same_hour_avg_7d'] = city_data.groupby('hour')[target_col].transform(lambda x: x.shift(1).rolling(window=7*8, min_periods=1).mean()).values
+            df_split.loc[city_mask, f'{target_col}_same_hour_avg_7d'] = city_data.groupby('hour')[target_col].transform(lambda x: x.shift(1).rolling(window=7*8, min_periods=1).mean()).values
         
         df_split['hour_month_interaction'] = df_split['hour'] * df_split['month']
         df_split['pressure_wind_interaction'] = df_split['Pressure'] * df_split['Wind'] / 100

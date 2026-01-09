@@ -107,19 +107,20 @@ def load_models():
     return True
 
 def get_cold_air_setting():
-    """Lấy mức độ không khí lạnh từ database
-    Returns: 0=tắt, 1=nhẹ, 2=trung bình, 3=mạnh
+    """Lấy mức độ không khí lạnh từ file config JSON
+    Returns: tuple (level, sunny_day) 
+        - level: 0=tắt, 1=nhẹ, 2=trung bình, 3=mạnh
+        - sunny_day: 0=không nắng, 1=nắng
     """
+    config_file = 'cold_air_config.json'
     try:
-        from database import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT level FROM cold_air_settings ORDER BY id DESC LIMIT 1')
-        result = cursor.fetchone()
-        conn.close()
-        return result[0] if result else 0
+        if os.path.exists(config_file):
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                return config.get('level', 0), config.get('sunny_day', 0)
+        return 0, 0
     except:
-        return 0
+        return 0, 0
 
 def apply_cold_air_adjustment(predictions, city, hours=None):
     """Áp dụng điều chỉnh nhiệt độ không khí lạnh dựa trên thành phố, thời gian và mức độ
@@ -130,7 +131,7 @@ def apply_cold_air_adjustment(predictions, city, hours=None):
     - 2: Trung bình
     - 3: Mạnh
     """
-    level = get_cold_air_setting()
+    level, sunny_day = get_cold_air_setting()
     if level == 0:
         return predictions
     
@@ -1899,10 +1900,20 @@ def api_forecast():
                     predictions = apply_cold_air_adjustment(predictions, city, forecast_df['hour'].values if 'hour' in forecast_df.columns else None)
                 
                 target_name = target.replace('_numeric', '')
+                temp_max = float(np.max(predictions))
+                
+                # Nếu là nhiệt độ, kiểm tra điều kiện cộng thêm 1.25 độ cho ngày nắng
+                if target_name == 'Temp':
+                    level, sunny_day = get_cold_air_setting()
+                    # Chỉ áp dụng khi: level=1 (nhẹ), sunny_day=1 (nắng), và city là vinh hoặc ha-noi
+                    # Cộng 1.25 độ vào nhiệt độ cao nhất ngày
+                    if level == 1 and sunny_day == 1 and city in ['vinh', 'ha-noi']:
+                        temp_max += 1.25
+                
                 day_forecast['attributes'][target_name] = {
                     'hourly': [float(p) for p in predictions],
                     'min': float(np.min(predictions)),
-                    'max': float(np.max(predictions)),
+                    'max': temp_max,
                     'avg': float(np.mean(predictions))
                 }
                 
@@ -2274,25 +2285,23 @@ def admin_get_table_data(table_name):
 
 @app.route('/admin/api/cold-air', methods=['GET'])
 def admin_get_cold_air():
-    """Lấy mức độ không khí lạnh
-    Returns: level (0=tắt, 1=nhẹ, 2=trung bình, 3=mạnh)
+    """Lấy mức độ không khí lạnh từ file config JSON
+    Returns: level (0=tắt, 1=nhẹ, 2=trung bình, 3=mạnh), sunny_day (0=không nắng, 1=nắng)
     """
+    config_file = 'cold_air_config.json'
     try:
-        from database import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT level, updated_at FROM cold_air_settings ORDER BY id DESC LIMIT 1')
-        result = cursor.fetchone()
-        conn.close()
-        
-        if result:
-            return jsonify({
-                'level': int(result[0]),
-                'updated_at': result[1]
-            })
+        if os.path.exists(config_file):
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                return jsonify({
+                    'level': config.get('level', 0),
+                    'sunny_day': config.get('sunny_day', 0),
+                    'updated_at': config.get('updated_at')
+                })
         else:
             return jsonify({
                 'level': 0,
+                'sunny_day': 0,
                 'updated_at': None
             })
     except Exception as e:
@@ -2302,40 +2311,39 @@ def admin_get_cold_air():
 def admin_set_cold_air():
     """Cập nhật mức độ không khí lạnh
     level: 0=tắt, 1=nhẹ, 2=trung bình, 3=mạnh
+    sunny_day: 0=không nắng, 1=nắng (chỉ áp dụng khi level=1)
     """
     try:
         data = request.json
         level = data.get('level', 0)
+        sunny_day = data.get('sunny_day', 0)
         
         # Kiểm tra tính hợp lệ của level
         if level not in [0, 1, 2, 3]:
             return jsonify({'error': 'Invalid level. Must be 0, 1, 2, or 3'}), 400
         
-        from database import get_db_connection
-        from datetime import datetime
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # Kiểm tra tính hợp lệ của sunny_day
+        if sunny_day not in [0, 1]:
+            return jsonify({'error': 'Invalid sunny_day. Must be 0 or 1'}), 400
         
-        # Cập nhật thiết lập hiện có hoặc tạo mới
-        cursor.execute('SELECT COUNT(*) FROM cold_air_settings')
-        if cursor.fetchone()[0] > 0:
-            cursor.execute('''
-                UPDATE cold_air_settings 
-                SET level = ?, updated_at = ?
-                WHERE id = (SELECT id FROM cold_air_settings ORDER BY id DESC LIMIT 1)
-            ''', (level, datetime.now().isoformat()))
-        else:
-            cursor.execute('''
-                INSERT INTO cold_air_settings (level, updated_at) 
-                VALUES (?, ?)
-            ''', (level, datetime.now().isoformat()))
+        # Nếu level không phải 1, đặt sunny_day = 0
+        if level != 1:
+            sunny_day = 0
         
-        conn.commit()
-        conn.close()
+        # Lưu vào file config JSON
+        config_file = 'cold_air_config.json'
+        config = {
+            'level': level,
+            'sunny_day': sunny_day,
+            'updated_at': datetime.now().isoformat()
+        }
+        with open(config_file, 'w', encoding='utf-8') as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
         
         return jsonify({
             'success': True,
-            'level': int(level)
+            'level': int(level),
+            'sunny_day': int(sunny_day)
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

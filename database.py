@@ -31,6 +31,7 @@ def init_database():
         CREATE TABLE IF NOT EXISTS cold_air_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             level INTEGER DEFAULT 0,
+            sunny_day INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
@@ -45,6 +46,10 @@ def init_database():
             cursor.execute('UPDATE cold_air_settings SET level = is_active WHERE level = 0')
         elif 'is_active' in columns and 'level' in columns:
             cursor.execute('UPDATE cold_air_settings SET level = is_active WHERE level = 0 AND is_active IS NOT NULL')
+        
+        # Thêm cột sunny_day nếu chưa có
+        if 'sunny_day' not in columns:
+            cursor.execute('ALTER TABLE cold_air_settings ADD COLUMN sunny_day INTEGER DEFAULT 0')
     except:
         pass
     

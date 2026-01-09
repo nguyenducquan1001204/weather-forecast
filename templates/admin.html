@@ -483,6 +483,12 @@
                             </div>
                         </div>
                     </div>
+                    <div id="sunny-day-option" style="display: none; margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 16px; color: #2c3e50;">
+                            <input type="checkbox" id="sunny-day-checkbox" onchange="updateSunnyDay()" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                            <span>Ngày nắng (cộng thêm 1.25°C vào nhiệt độ cao nhất ngày cho Vinh và Hà Nội)</span>
+                        </label>
+                    </div>
                     <div id="cold-air-updated" style="color: #7f8c8d; font-size: 14px; margin-top: 15px;"></div>
                 </div>
             </div>
@@ -701,9 +707,21 @@
                 .then(response => response.json())
                 .then(data => {
                     const level = data.level || 0;
+                    const sunnyDay = data.sunny_day || 0;
                     const radio = document.getElementById('level-' + level);
                     if (radio) {
                         radio.checked = true;
+                    }
+                    
+                    // Hiển thị/ẩn checkbox ngày nắng
+                    const sunnyDayOption = document.getElementById('sunny-day-option');
+                    const sunnyDayCheckbox = document.getElementById('sunny-day-checkbox');
+                    if (level == 1) {
+                        sunnyDayOption.style.display = 'block';
+                        sunnyDayCheckbox.checked = (sunnyDay == 1);
+                    } else {
+                        sunnyDayOption.style.display = 'none';
+                        sunnyDayCheckbox.checked = false;
                     }
                     
                     const updated = document.getElementById('cold-air-updated');
@@ -720,13 +738,17 @@
         }
 
         function setColdAirLevel(level) {
+            const sunnyDayCheckbox = document.getElementById('sunny-day-checkbox');
+            const sunnyDay = (level == 1 && sunnyDayCheckbox.checked) ? 1 : 0;
+            
             fetch('/admin/api/cold-air', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    level: level
+                    level: level,
+                    sunny_day: sunnyDay
                 })
             })
             .then(response => response.json())
@@ -741,6 +763,13 @@
                 console.error('Error updating cold air setting:', error);
                 alert('Lỗi khi cập nhật thiết lập');
             });
+        }
+        
+        function updateSunnyDay() {
+            const levelRadio = document.querySelector('input[name="cold-air-level"]:checked');
+            if (levelRadio && levelRadio.value == '1') {
+                setColdAirLevel(1);
+            }
         }
 
         loadStats();
