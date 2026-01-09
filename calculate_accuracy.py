@@ -1,7 +1,3 @@
-"""
-Script để tính toán độ chính xác và lưu vào database
-Chạy script này để tính toán và lưu kết quả accuracy vào database
-"""
 import pandas as pd
 import numpy as np
 import pickle
@@ -19,7 +15,6 @@ print("TÍNH TOÁN CÁC CHỈ SỐ ĐỘ CHÍNH XÁC")
 print("="*70)
 
 def load_models():
-    """Tải models từ file .pkl"""
     model_file = 'weather_models_improved.pkl'
     if not os.path.exists(model_file):
         model_file = 'weather_models.pkl'
@@ -45,7 +40,6 @@ def load_models():
         return None, None
 
 def load_data():
-    """Tải dữ liệu từ SQLite database (fallback về CSV nếu database không tồn tại)"""
     try:
         from database import load_data_from_db, init_database
         import os
@@ -65,7 +59,6 @@ def load_data():
         return load_data_from_csv()
 
 def load_data_from_csv():
-    """Tải dữ liệu từ CSV (implementation fallback)"""
     df = pd.read_csv('weather_all_cities.csv', encoding='utf-8-sig')
     df['datetime'] = pd.to_datetime(df['date'] + ' ' + df['Time'])
     df = df.sort_values(['city', 'datetime']).reset_index(drop=True)
@@ -110,7 +103,6 @@ def load_data_from_csv():
     return df
 
 def create_features_for_prediction(df, target_col='Temp'):
-    """Tạo advanced features cho dữ liệu cần dự đoán"""
     df = df.copy()
     df = df.sort_values(['city', 'datetime']).reset_index(drop=True)
     
@@ -231,7 +223,6 @@ def calculate_accuracy():
                 if len(day_data_features) == 0:
                     continue
                 
-                # Chọn model phù hợp: model riêng cho HCM hoặc model chung
                 if city == 'ho-chi-minh-city' and 'Temp_numeric_hcm' in models:
                     model_key = 'Temp_numeric_hcm'
                 else:
