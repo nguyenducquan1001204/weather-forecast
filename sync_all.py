@@ -65,7 +65,29 @@ def check_and_pull():
             if result.returncode == 0:
                 print(f"  ✅ Đã pull thành công {commits_behind} commit(s)")
                 print()
-                print("  📄 Các file đã được cập nhật:")
+                
+                # Lấy danh sách các file đã thay đổi sau khi pull
+                result = subprocess.run(
+                    ['git', 'diff', '--name-only', 'HEAD@{1}', 'HEAD'],
+                    capture_output=True,
+                    text=True,
+                    cwd=SCRIPT_DIR
+                )
+                
+                changed_files = []
+                if result.returncode == 0 and result.stdout.strip():
+                    changed_files = [f.strip() for f in result.stdout.strip().split('\n') if f.strip()]
+                
+                # Nếu không lấy được từ diff, thử cách khác
+                if not changed_files:
+                    result = subprocess.run(
+                        ['git', 'log', '--name-only', '--pretty=format:', '-1'],
+                        capture_output=True,
+                        text=True,
+                        cwd=SCRIPT_DIR
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        changed_files = [f.strip() for f in result.stdout.strip().split('\n') if f.strip() and not f.startswith('commit')]
                 
                 # Kiểm tra các file quan trọng
                 important_files = [
@@ -76,12 +98,38 @@ def check_and_pull():
                     'thoitiet360_data.csv'
                 ]
                 
+                print("  📄 Các file đã được cập nhật:")
                 updated_files = []
                 for file in important_files:
                     file_path = os.path.join(SCRIPT_DIR, file)
                     if os.path.exists(file_path):
-                        updated_files.append(file)
-                        print(f"    ✓ {file}")
+                        # Kiểm tra xem file có trong danh sách thay đổi không
+                        is_changed = any(file in changed_file or changed_file.endswith(file) for changed_file in changed_files)
+                        if is_changed or commits_behind > 0:  # Nếu có commit mới, có thể file đã được cập nhật
+                            updated_files.append(file)
+                            status = "🔄" if is_changed else "✓"
+                            print(f"    {status} {file}")
+                
+                # Hiển thị tất cả các file đã thay đổi
+                if changed_files:
+                    print()
+                    print(f"  📋 Tổng cộng {len(changed_files)} file đã thay đổi:")
+                    for file in changed_files[:20]:  # Chỉ hiển thị 20 file đầu
+                        print(f"    • {file}")
+                    if len(changed_files) > 20:
+                        print(f"    ... và {len(changed_files) - 20} file khác")
+                
+                # Ghi log vào file
+                log_file = os.path.join(SCRIPT_DIR, 'sync_log.txt')
+                try:
+                    with open(log_file, 'a', encoding='utf-8') as f:
+                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        f.write(f"\n[{timestamp}] Pull thành công - {commits_behind} commit(s)\n")
+                        f.write(f"Files updated: {', '.join(updated_files) if updated_files else 'None'}\n")
+                        if changed_files:
+                            f.write(f"All changed files ({len(changed_files)}): {', '.join(changed_files[:10])}\n")
+                except Exception as e:
+                    print(f"  ⚠️  Không thể ghi log: {str(e)[:50]}")
                 
                 print()
                 
@@ -109,6 +157,16 @@ def check_and_pull():
                 return False
         else:
             print("  ✅ Đã cập nhật mới nhất, không có thay đổi")
+            
+            # Ghi log ngay cả khi không có thay đổi
+            log_file = os.path.join(SCRIPT_DIR, 'sync_log.txt')
+            try:
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    f.write(f"[{timestamp}] Đã kiểm tra - Không có cập nhật mới\n")
+            except:
+                pass
+            
             print()
             print("="*70)
             return False
