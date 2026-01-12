@@ -69,6 +69,14 @@
             transform: translateX(5px);
         }
 
+        .nav-menu a.user-management-icon::before {
+            content: "👤";
+            filter: brightness(0) invert(1);
+            display: inline-block;
+            margin-right: 8px;
+            font-size: 18px;
+        }
+
         .main-content {
             flex: 1;
             margin-left: 260px;
@@ -125,6 +133,155 @@
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="password"] {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            background: #fafafa;
+        }
+
+        .form-group input[type="text"]:focus,
+        .form-group input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .form-group input[readonly] {
+            background: #f5f7fa;
+            color: #7f8c8d;
+            cursor: not-allowed;
+        }
+
+        .password-form-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .password-form-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .password-form-header h2 {
+            color: #2c3e50;
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .password-form-header p {
+            color: #7f8c8d;
+            font-size: 15px;
+        }
+
+        .alert {
+            padding: 16px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert-error {
+            background: linear-gradient(135deg, #fee 0%, #fdd 100%);
+            color: #c33;
+            border-left: 4px solid #e74c3c;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #efe 0%, #dfd 100%);
+            color: #27ae60;
+            border-left: 4px solid #2ecc71;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            flex: 1;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(149, 165, 166, 0.4);
+            background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%);
+        }
+
+        .btn-compact {
+            padding: 8px 16px !important;
+            font-size: 14px !important;
+            flex: none !important;
+            white-space: nowrap;
         }
 
         .filters {
@@ -418,7 +575,13 @@
                 <li><a href="#" class="active" onclick="showDashboard()">📊 Dashboard</a></li>
                 <li><a href="#" onclick="showColdAirSettings()">❄️ Không khí lạnh</a></li>
                 <li><a href="#" onclick="showTable('weather_data')">🌤️ Weather Data</a></li>
+                <li><a href="#" onclick="showTable('thoitiet360_data')">🌐 Thoitiet360 Data</a></li>
                 <li><a href="#" onclick="showTable('accuracy_results')">📈 Accuracy Results</a></li>
+                <li><a href="#" onclick="showUserManagement()" class="user-management-icon"> Quản lý tài khoản</a></li>
+                <li><a href="#" onclick="showChangePassword()">🔐 Đổi mật khẩu</a></li>
+                <li style="margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <a href="/logout" style="color: #e74c3c;">🚪 Đăng xuất</a>
+                </li>
             </ul>
         </div>
 
@@ -520,6 +683,82 @@
 
                     <div id="table-container" class="table-container">
                         <div class="loading">Đang tải dữ liệu...</div>
+                    </div>
+                </div>
+            </div>
+            <div id="user-management-view" style="display: none;">
+                <div class="content-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                        <h2 style="color: #2c3e50; margin: 0;">Quản lý tài khoản</h2>
+                        <button class="btn btn-primary btn-compact" onclick="showAddUserForm()">➕ Thêm tài khoản</button>
+                    </div>
+
+                    <div id="user-form-container" style="display: none; background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                        <h3 id="user-form-title" style="color: #2c3e50; margin-bottom: 20px;">Thêm tài khoản mới</h3>
+                        <div class="filters">
+                            <div class="filter-group">
+                                <label>Tên đăng nhập</label>
+                                <input type="text" id="user-username" placeholder="Nhập tên đăng nhập">
+                            </div>
+                            <div class="filter-group">
+                                <label>Mật khẩu</label>
+                                <input type="password" id="user-password" placeholder="Nhập mật khẩu">
+                            </div>
+                            <div class="filter-group" style="display: flex; align-items: flex-end; gap: 10px;">
+                                <button class="btn btn-primary btn-compact" onclick="saveUser()">💾 Lưu</button>
+                                <button class="btn btn-secondary btn-compact" onclick="cancelUserForm()">❌ Hủy</button>
+                            </div>
+                        </div>
+                        <div id="user-form-error" style="display: none; color: #e74c3c; margin-top: 10px;"></div>
+                    </div>
+
+                    <div id="users-table-container" class="table-container">
+                        <div class="loading">Đang tải dữ liệu...</div>
+                    </div>
+                </div>
+            </div>
+            <div id="change-password-view" style="display: none;">
+                <div class="content-card">
+                    <div class="password-form-header">
+                        <h2>🔐 Đổi mật khẩu</h2>
+                        <p>Bảo vệ tài khoản của bạn bằng mật khẩu mạnh</p>
+                    </div>
+                    
+                    <div class="password-form-container">
+                        <div class="form-group">
+                            <label>👤 Tên đăng nhập</label>
+                            <input type="text" id="change-password-username" readonly>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>🔒 Mật khẩu hiện tại</label>
+                            <input type="password" id="change-password-old" placeholder="Nhập mật khẩu hiện tại của bạn">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>✨ Mật khẩu mới</label>
+                            <input type="password" id="change-password-new" placeholder="Nhập mật khẩu mới (tối thiểu 4 ký tự)">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>✅ Xác nhận mật khẩu mới</label>
+                            <input type="password" id="change-password-confirm" placeholder="Nhập lại mật khẩu mới để xác nhận">
+                        </div>
+                        
+                        <div id="change-password-error" class="alert alert-error" style="display: none;"></div>
+                        
+                        <div id="change-password-success" class="alert alert-success" style="display: none;"></div>
+                        
+                        <div class="form-actions">
+                            <button class="btn btn-primary" onclick="savePasswordChange()">
+                                <span>💾</span>
+                                <span>Đổi mật khẩu</span>
+                            </button>
+                            <button class="btn btn-secondary" onclick="resetPasswordForm()">
+                                <span>🔄</span>
+                                <span>Làm mới</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -649,6 +888,8 @@
             document.getElementById('dashboard-view').style.display = 'block';
             document.getElementById('cold-air-view').style.display = 'none';
             document.getElementById('table-view').style.display = 'none';
+            document.getElementById('user-management-view').style.display = 'none';
+            document.getElementById('change-password-view').style.display = 'none';
             document.getElementById('page-title').textContent = 'Dashboard';
             document.querySelectorAll('.nav-menu a').forEach(a => a.classList.remove('active'));
             if (event && event.target) {
@@ -661,6 +902,8 @@
             document.getElementById('dashboard-view').style.display = 'none';
             document.getElementById('cold-air-view').style.display = 'block';
             document.getElementById('table-view').style.display = 'none';
+            document.getElementById('user-management-view').style.display = 'none';
+            document.getElementById('change-password-view').style.display = 'none';
             document.getElementById('page-title').textContent = 'Thiết lập Không khí lạnh';
             document.querySelectorAll('.nav-menu a').forEach(a => a.classList.remove('active'));
             if (event && event.target) {
@@ -675,15 +918,22 @@
             
             document.getElementById('dashboard-view').style.display = 'none';
             document.getElementById('cold-air-view').style.display = 'none';
+            document.getElementById('user-management-view').style.display = 'none';
             document.getElementById('table-view').style.display = 'block';
-            document.getElementById('page-title').textContent = tableName === 'weather_data' ? 'Weather Data' : 'Accuracy Results';
+            
+            const titles = {
+                'weather_data': 'Weather Data',
+                'thoitiet360_data': 'Thoitiet360 Data',
+                'accuracy_results': 'Accuracy Results'
+            };
+            document.getElementById('page-title').textContent = titles[tableName] || tableName;
             
             document.querySelectorAll('.nav-menu a').forEach(a => a.classList.remove('active'));
             if (event && event.target) {
                 event.target.classList.add('active');
             }
 
-            if (tableName === 'weather_data') {
+            if (tableName === 'weather_data' || tableName === 'thoitiet360_data') {
                 document.getElementById('city-filter-group').style.display = 'block';
                 document.getElementById('date-from-group').style.display = 'block';
                 document.getElementById('date-to-group').style.display = 'block';
@@ -694,6 +944,276 @@
             }
 
             loadTableData();
+        }
+
+        let editingUserId = null;
+
+        function showUserManagement(event) {
+            document.getElementById('dashboard-view').style.display = 'none';
+            document.getElementById('cold-air-view').style.display = 'none';
+            document.getElementById('table-view').style.display = 'none';
+            document.getElementById('user-management-view').style.display = 'block';
+            document.getElementById('change-password-view').style.display = 'none';
+            document.getElementById('page-title').textContent = 'Quản lý tài khoản';
+            document.querySelectorAll('.nav-menu a').forEach(a => a.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            loadUsers();
+        }
+
+        function showChangePassword(event) {
+            document.getElementById('dashboard-view').style.display = 'none';
+            document.getElementById('cold-air-view').style.display = 'none';
+            document.getElementById('table-view').style.display = 'none';
+            document.getElementById('user-management-view').style.display = 'none';
+            document.getElementById('change-password-view').style.display = 'block';
+            document.getElementById('page-title').textContent = 'Đổi mật khẩu';
+            document.querySelectorAll('.nav-menu a').forEach(a => a.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            loadCurrentUserInfo();
+        }
+
+        function loadCurrentUserInfo() {
+            fetch('/admin/api/current-user')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.username) {
+                        document.getElementById('change-password-username').value = data.username;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading user info:', error);
+                });
+        }
+
+        function resetPasswordForm() {
+            document.getElementById('change-password-old').value = '';
+            document.getElementById('change-password-new').value = '';
+            document.getElementById('change-password-confirm').value = '';
+            document.getElementById('change-password-error').style.display = 'none';
+            document.getElementById('change-password-success').style.display = 'none';
+        }
+
+        function savePasswordChange() {
+            const oldPassword = document.getElementById('change-password-old').value;
+            const newPassword = document.getElementById('change-password-new').value;
+            const confirmPassword = document.getElementById('change-password-confirm').value;
+            const errorDiv = document.getElementById('change-password-error');
+            const successDiv = document.getElementById('change-password-success');
+
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+
+            if (!oldPassword) {
+                errorDiv.textContent = 'Vui lòng nhập mật khẩu hiện tại';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (!newPassword) {
+                errorDiv.textContent = 'Vui lòng nhập mật khẩu mới';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (newPassword.length < 4) {
+                errorDiv.textContent = 'Mật khẩu mới phải có ít nhất 4 ký tự';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                errorDiv.textContent = 'Mật khẩu mới và xác nhận không khớp';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            fetch('/admin/api/change-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    old_password: oldPassword,
+                    new_password: newPassword
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    successDiv.textContent = data.message || 'Đổi mật khẩu thành công!';
+                    successDiv.style.display = 'block';
+                    resetPasswordForm();
+                } else {
+                    errorDiv.textContent = data.error || 'Có lỗi xảy ra';
+                    errorDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                errorDiv.textContent = 'Lỗi: ' + error.message;
+                errorDiv.style.display = 'block';
+            });
+        }
+
+        function loadUsers() {
+            const container = document.getElementById('users-table-container');
+            container.innerHTML = '<div class="loading">Đang tải dữ liệu...</div>';
+
+            fetch('/admin/api/users')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        container.innerHTML = `<div class="error">Lỗi: ${data.error}</div>`;
+                        return;
+                    }
+
+                    if (data.users.length === 0) {
+                        container.innerHTML = '<div class="empty-state">Không có tài khoản nào</div>';
+                        return;
+                    }
+
+                    let html = '<table><thead><tr>';
+                    html += '<th>ID</th>';
+                    html += '<th>Tên đăng nhập</th>';
+                    html += '<th>Ngày tạo</th>';
+                    html += '<th>Đăng nhập lần cuối</th>';
+                    html += '<th>Thao tác</th>';
+                    html += '</tr></thead><tbody>';
+
+                    const currentUserId = data.current_user_id;
+                    data.users.forEach(user => {
+                        const createdDate = user.created_at ? new Date(user.created_at).toLocaleString('vi-VN') : '-';
+                        const lastLogin = user.last_login ? new Date(user.last_login).toLocaleString('vi-VN') : 'Chưa đăng nhập';
+                        const usernameEscaped = String(user.username).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        const isCurrentUser = user.id === currentUserId;
+                        html += '<tr>';
+                        html += `<td>${user.id}</td>`;
+                        html += `<td>${user.username} ${isCurrentUser ? '<span style="color: #7f8c8d; font-size: 11px;">(Hiện tại)</span>' : ''}</td>`;
+                        html += `<td>${createdDate}</td>`;
+                        html += `<td>${lastLogin}</td>`;
+                        html += '<td>';
+                        html += `<button class="btn btn-primary" style="padding: 6px 12px; margin-right: 5px; font-size: 12px;" onclick="editUser(${user.id}, '${usernameEscaped}')">✏️ Sửa</button>`;
+                        if (isCurrentUser) {
+                            html += `<button class="btn" style="padding: 6px 12px; background: #95a5a6; color: white; font-size: 12px; border: none; cursor: not-allowed; opacity: 0.6;" disabled title="Không thể xóa tài khoản đang đăng nhập">🗑️ Xóa</button>`;
+                        } else {
+                            html += `<button class="btn" style="padding: 6px 12px; background: #e74c3c; color: white; font-size: 12px; border: none; cursor: pointer;" onclick="deleteUser(${user.id}, '${usernameEscaped}')">🗑️ Xóa</button>`;
+                        }
+                        html += '</td>';
+                        html += '</tr>';
+                    });
+
+                    html += '</tbody></table>';
+                    container.innerHTML = html;
+                })
+                .catch(error => {
+                    container.innerHTML = `<div class="error">Lỗi: ${error.message}</div>`;
+                });
+        }
+
+        function showAddUserForm() {
+            editingUserId = null;
+            document.getElementById('user-form-title').textContent = 'Thêm tài khoản mới';
+            document.getElementById('user-username').value = '';
+            document.getElementById('user-password').value = '';
+            document.getElementById('user-username').disabled = false;
+            document.getElementById('user-form-error').style.display = 'none';
+            document.getElementById('user-form-container').style.display = 'block';
+        }
+
+        function editUser(userId, username) {
+            editingUserId = userId;
+            document.getElementById('user-form-title').textContent = 'Sửa tài khoản: ' + username;
+            document.getElementById('user-username').value = username;
+            document.getElementById('user-password').value = '';
+            document.getElementById('user-username').disabled = true;
+            document.getElementById('user-form-error').style.display = 'none';
+            document.getElementById('user-form-container').style.display = 'block';
+        }
+
+        function cancelUserForm() {
+            editingUserId = null;
+            document.getElementById('user-form-container').style.display = 'none';
+            document.getElementById('user-username').value = '';
+            document.getElementById('user-password').value = '';
+            document.getElementById('user-form-error').style.display = 'none';
+        }
+
+        function saveUser() {
+            const username = document.getElementById('user-username').value.trim();
+            const password = document.getElementById('user-password').value;
+            const errorDiv = document.getElementById('user-form-error');
+
+            if (!username) {
+                errorDiv.textContent = 'Vui lòng nhập tên đăng nhập';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (!password) {
+                errorDiv.textContent = 'Vui lòng nhập mật khẩu';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (password.length < 4) {
+                errorDiv.textContent = 'Mật khẩu phải có ít nhất 4 ký tự';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            errorDiv.style.display = 'none';
+
+            const url = editingUserId ? `/admin/api/users/${editingUserId}` : '/admin/api/users';
+            const method = editingUserId ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    cancelUserForm();
+                    loadUsers();
+                } else {
+                    errorDiv.textContent = data.error || 'Có lỗi xảy ra';
+                    errorDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                errorDiv.textContent = 'Lỗi: ' + error.message;
+                errorDiv.style.display = 'block';
+            });
+        }
+
+        function deleteUser(userId, username) {
+            if (!confirm(`Bạn có chắc chắn muốn xóa tài khoản "${username}"?`)) {
+                return;
+            }
+
+            fetch(`/admin/api/users/${userId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadUsers();
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không thể xóa tài khoản'));
+                }
+            })
+            .catch(error => {
+                alert('Lỗi: ' + error.message);
+            });
         }
 
         document.getElementById('search-input').addEventListener('keypress', function(e) {

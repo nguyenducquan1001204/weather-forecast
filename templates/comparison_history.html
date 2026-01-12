@@ -350,14 +350,11 @@
             const month = document.getElementById('monthFilter').value;
             const dayFilter = document.getElementById('dayFilter');
             
-            // Xóa các option cũ (trừ "Tất cả")
             dayFilter.innerHTML = '<option value="">Tất cả</option>';
             
             if (year && month) {
-                // Tính số ngày trong tháng
                 const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
                 
-                // Thêm các ngày
                 for (let day = 1; day <= daysInMonth; day++) {
                     const option = document.createElement('option');
                     option.value = day.toString().padStart(2, '0');
@@ -382,15 +379,12 @@
             noData.style.display = 'none';
             historyTable.style.display = 'none';
 
-            // Tạo date string nếu có đủ thông tin
             let dateFilter = '';
             if (year && month && day) {
                 dateFilter = `${year}-${month}-${day}`;
             } else if (year && month) {
-                // Nếu chỉ có năm và tháng, lấy tất cả ngày trong tháng
                 dateFilter = `${year}-${month}`;
             } else if (year) {
-                // Nếu chỉ có năm, lấy tất cả ngày trong năm
                 dateFilter = `${year}`;
             }
 
@@ -401,7 +395,7 @@
                 },
                 body: JSON.stringify({
                     city: city,
-                    date: dateFilter  // Gửi date cụ thể thay vì date_from và date_to
+                    date: dateFilter
                 })
             })
             .then(response => response.json())
@@ -432,7 +426,6 @@
                         return `<span class="${className}">${sign}${val.toFixed(1)}</span>`;
                     };
                     
-                    // Format nhiệt độ min/max
                     const formatTempMinMax = (tempMin, tempMax) => {
                         if (tempMin !== null && tempMin !== undefined && tempMax !== null && tempMax !== undefined) {
                             return `${formatValue(tempMin)}/${formatValue(tempMax)}`;
@@ -470,9 +463,33 @@
             });
         }
 
-        // Tự động load khi trang được mở
-        window.onload = function() {
-            // Lấy danh sách năm có dữ liệu
+        async function autoGenerateForecasts() {
+            const cities = ['vinh', 'ha-noi', 'ho-chi-minh-city'];
+            const promises = cities.map(city => {
+                return fetch('/api/forecast', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ city: city })
+                }).catch(error => {
+                    console.log(`Lỗi khi tạo dự báo cho ${city}:`, error);
+                    return null;
+                });
+            });
+            
+            await Promise.all(promises);
+        }
+
+        window.onload = async function() {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+            loading.textContent = '⏳ Đang tạo dự báo cho tất cả thành phố...';
+            
+            await autoGenerateForecasts();
+            
+            loading.textContent = '⏳ Đang tải dữ liệu...';
+            
             fetch('/api/comparison-history', {
                 method: 'POST',
                 headers: {
@@ -483,7 +500,6 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.data.length > 0) {
-                    // Lấy các năm unique từ dữ liệu
                     const years = [...new Set(data.data.map(item => item.date.split('-')[0]))].sort((a, b) => b - a);
                     const yearFilter = document.getElementById('yearFilter');
                     
@@ -494,7 +510,6 @@
                         yearFilter.appendChild(option);
                     });
                     
-                    // Set năm hiện tại làm mặc định
                     const currentYear = new Date().getFullYear().toString();
                     if (years.includes(currentYear)) {
                         yearFilter.value = currentYear;
@@ -502,14 +517,11 @@
                         yearFilter.value = years[0];
                     }
                     
-                    // Set tháng hiện tại làm mặc định
                     const currentMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
                     document.getElementById('monthFilter').value = currentMonth;
                     
-                    // Cập nhật danh sách ngày
                     updateDayOptions();
                     
-                    // Set ngày hiện tại làm mặc định
                     const currentDay = new Date().getDate().toString().padStart(2, '0');
                     document.getElementById('dayFilter').value = currentDay;
                 }
@@ -517,7 +529,6 @@
                 loadHistory();
             });
             
-            // Cập nhật danh sách ngày khi thay đổi năm hoặc tháng
             document.getElementById('yearFilter').addEventListener('change', updateDayOptions);
             document.getElementById('monthFilter').addEventListener('change', updateDayOptions);
             

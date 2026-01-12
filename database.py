@@ -180,6 +180,27 @@ def init_database():
     
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_forecasts_city_date ON system_forecasts(city, date)')
     
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_login TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)')
+    
+    cursor.execute('SELECT COUNT(*) FROM users WHERE username = ?', ('admin01',))
+    if cursor.fetchone()[0] == 0:
+        import hashlib
+        password_hash = hashlib.sha256('admin01'.encode()).hexdigest()
+        cursor.execute('''
+            INSERT INTO users (username, password) VALUES (?, ?)
+        ''', ('admin01', password_hash))
+        print("[OK] Created default admin account: admin01")
+    
     conn.commit()
     conn.close()
     print("[OK] Database schema initialized successfully!")

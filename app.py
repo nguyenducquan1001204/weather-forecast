@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from functools import wraps
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -8,6 +9,7 @@ import pickle
 import os
 import json
 import warnings
+import hashlib
 
 warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', message='.*xgboost.*')
@@ -17,6 +19,7 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)
 
 models_final = {}
 feature_cols_dict_final = {}
@@ -1986,11 +1989,64 @@ def api_comparison_history():
             'traceback': traceback.format_exc()
         }), 500
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'logged_in' not in session or not session['logged_in']:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        data = request.json
+        username = data.get('username', '')
+        password = data.get('password', '')
+        
+        if not username or not password:
+            return jsonify({'success': False, 'error': 'Vui lòng nhập đầy đủ thông tin'}), 400
+        
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        cursor.execute('SELECT id, username FROM users WHERE username = ? AND password = ?', (username, password_hash))
+        user = cursor.fetchone()
+        
+        conn.close()
+        
+        if user:
+            session['logged_in'] = True
+            session['username'] = user[1]
+            session['user_id'] = user[0]
+            
+            from database import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', (user[0],))
+            conn.commit()
+            conn.close()
+            
+            return jsonify({'success': True, 'message': 'Đăng nhập thành công'})
+        else:
+            return jsonify({'success': False, 'error': 'Tên đăng nhập hoặc mật khẩu không đúng'}), 401
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
 @app.route('/admin')
+@login_required
 def admin():
     return render_template('admin.html')
 
 @app.route('/admin/api/tables', methods=['GET'])
+@login_required
 def admin_get_tables():
     try:
         from database import get_db_connection
@@ -2007,6 +2063,7 @@ def admin_get_tables():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/api/stats', methods=['GET'])
+@login_required
 def admin_get_stats():
     try:
         from database import get_db_connection
@@ -2041,6 +2098,7 @@ def admin_get_stats():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/api/table/<table_name>', methods=['GET'])
+@login_required
 def admin_get_table_data(table_name):
     try:
         from database import get_db_connection
@@ -2056,7 +2114,7 @@ def admin_get_table_data(table_name):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        if table_name not in ['weather_data', 'accuracy_results']:
+        if table_name not in ['weather_data', 'thoitiet360_data', 'accuracy_results']:
             conn.close()
             return jsonify({'error': 'Invalid table name'}), 400
         
@@ -2068,6 +2126,20 @@ def admin_get_table_data(table_name):
         if table_name == 'weather_data':
             if search:
                 conditions.append("(city LIKE ? OR date LIKE ? OR Time LIKE ?)")
+                search_param = f"%{search}%"
+                params.extend([search_param, search_param, search_param])
+            if city:
+                conditions.append("city = ?")
+                params.append(city)
+            if date_from:
+                conditions.append("date >= ?")
+                params.append(date_from)
+            if date_to:
+                conditions.append("date <= ?")
+                params.append(date_to)
+        elif table_name == 'thoitiet360_data':
+            if search:
+                conditions.append("(city LIKE ? OR date LIKE ? OR datetime LIKE ?)")
                 search_param = f"%{search}%"
                 params.extend([search_param, search_param, search_param])
             if city:
@@ -2132,6 +2204,7 @@ def admin_get_table_data(table_name):
         return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
 
 @app.route('/admin/api/cold-air', methods=['GET'])
+@login_required
 def admin_get_cold_air():
     config_file = 'cold_air_config.json'
     try:
@@ -2153,6 +2226,7 @@ def admin_get_cold_air():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/api/cold-air', methods=['POST'])
+@login_required
 def admin_set_cold_air():
     try:
         data = request.json
@@ -2186,6 +2260,7 @@ def admin_set_cold_air():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/api/cities', methods=['GET'])
+@login_required
 def admin_get_cities():
     try:
         from database import get_db_connection
@@ -2200,6 +2275,164 @@ def admin_get_cities():
         return jsonify({'cities': cities})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/api/users', methods=['GET'])
+@login_required
+def admin_get_users():
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id, username, created_at, last_login FROM users ORDER BY id")
+        users = []
+        for row in cursor.fetchall():
+            users.append({
+                'id': row[0],
+                'username': row[1],
+                'created_at': row[2],
+                'last_login': row[3]
+            })
+        
+        conn.close()
+        
+        return jsonify({
+            'users': users,
+            'current_user_id': session.get('user_id')
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/api/users', methods=['POST'])
+@login_required
+def admin_create_user():
+    try:
+        data = request.json
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        if not username:
+            return jsonify({'success': False, 'error': 'Tên đăng nhập không được để trống'}), 400
+        
+        if not password or len(password) < 4:
+            return jsonify({'success': False, 'error': 'Mật khẩu phải có ít nhất 4 ký tự'}), 400
+        
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+        if cursor.fetchone():
+            conn.close()
+            return jsonify({'success': False, 'error': 'Tên đăng nhập đã tồn tại'}), 400
+        
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password_hash))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Tạo tài khoản thành công'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/api/users/<int:user_id>', methods=['PUT'])
+@login_required
+def admin_update_user(user_id):
+    try:
+        data = request.json
+        password = data.get('password', '')
+        
+        if not password or len(password) < 4:
+            return jsonify({'success': False, 'error': 'Mật khẩu phải có ít nhất 4 ký tự'}), 400
+        
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({'success': False, 'error': 'Tài khoản không tồn tại'}), 404
+        
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (password_hash, user_id))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Cập nhật mật khẩu thành công'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/api/users/<int:user_id>', methods=['DELETE'])
+@login_required
+def admin_delete_user(user_id):
+    try:
+        current_user_id = session.get('user_id')
+        if user_id == current_user_id:
+            return jsonify({'success': False, 'error': 'Không thể xóa tài khoản đang đăng nhập'}), 400
+        
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({'success': False, 'error': 'Tài khoản không tồn tại'}), 404
+        
+        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Xóa tài khoản thành công'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/api/current-user', methods=['GET'])
+@login_required
+def admin_get_current_user():
+    try:
+        return jsonify({
+            'username': session.get('username'),
+            'user_id': session.get('user_id')
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/api/change-password', methods=['POST'])
+@login_required
+def admin_change_password():
+    try:
+        data = request.json
+        old_password = data.get('old_password', '')
+        new_password = data.get('new_password', '')
+        user_id = session.get('user_id')
+        username = session.get('username')
+        
+        if not old_password or not new_password:
+            return jsonify({'success': False, 'error': 'Vui lòng nhập đầy đủ thông tin'}), 400
+        
+        if len(new_password) < 4:
+            return jsonify({'success': False, 'error': 'Mật khẩu mới phải có ít nhất 4 ký tự'}), 400
+        
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        old_password_hash = hashlib.sha256(old_password.encode()).hexdigest()
+        cursor.execute("SELECT id FROM users WHERE id = ? AND password = ?", (user_id, old_password_hash))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({'success': False, 'error': 'Mật khẩu hiện tại không đúng'}), 401
+        
+        new_password_hash = hashlib.sha256(new_password.encode()).hexdigest()
+        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (new_password_hash, user_id))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Đổi mật khẩu thành công!'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/statistics')
 def statistics():
