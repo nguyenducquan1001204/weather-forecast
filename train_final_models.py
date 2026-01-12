@@ -271,7 +271,8 @@ def train_final_model(df, target='Temp'):
         city_features = []
     
     features_to_remove = []
-    features_to_remove.append('Rain_same_hour_7d_ago')
+    if target == 'Pressure':
+        features_to_remove.append('Rain_same_hour_7d_ago')
     
     all_features = (base_features + cyclical_features + weather_features + 
                    temp_lag_features + temp_rolling_features +

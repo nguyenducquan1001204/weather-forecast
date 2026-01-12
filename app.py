@@ -7,6 +7,10 @@ import io
 import pickle
 import os
 import json
+import warnings
+
+warnings.filterwarnings('ignore', category=UserWarning)
+warnings.filterwarnings('ignore', message='.*xgboost.*')
 
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -34,8 +38,10 @@ def load_models():
     if os.path.exists('weather_models_final.pkl'):
         try:
             print("Đang tải weather_models_final.pkl (cho dự báo)...")
-            with open('weather_models_final.pkl', 'rb') as f:
-                models_data = pickle.load(f)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                with open('weather_models_final.pkl', 'rb') as f:
+                    models_data = pickle.load(f)
             models_final = models_data['models']
             feature_cols_dict_final = models_data['feature_cols']
             loaded_final = True
@@ -54,8 +60,10 @@ def load_models():
     if os.path.exists('weather_models_improved.pkl'):
         try:
             print("Đang tải weather_models_improved.pkl (cho test/validation)...")
-            with open('weather_models_improved.pkl', 'rb') as f:
-                models_data = pickle.load(f)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                with open('weather_models_improved.pkl', 'rb') as f:
+                    models_data = pickle.load(f)
             models_improved = models_data['models']
             feature_cols_dict_improved = models_data['feature_cols']
             loaded_improved = True
@@ -83,8 +91,10 @@ def load_models():
         if os.path.exists('weather_models.pkl'):
             try:
                 print("Đang tải weather_models.pkl (model cũ)...")
-                with open('weather_models.pkl', 'rb') as f:
-                    models_data = pickle.load(f)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    with open('weather_models.pkl', 'rb') as f:
+                        models_data = pickle.load(f)
                 models = models_data['models']
                 feature_cols_dict = models_data['feature_cols']
                 print(f"✅ Đã load {len(models)} OLD models thành công!")
@@ -242,6 +252,13 @@ def create_features_for_prediction(df, target_col='Temp'):
     df = df.copy()
     df = df.sort_values(['city', 'datetime']).reset_index(drop=True)
     
+    required_cols = ['Temp', 'Rain', 'Cloud', 'Pressure', 'Wind', 'Gust', 'Dir']
+    for col in required_cols:
+        if col not in df.columns:
+            defaults = {'Temp': 25.0, 'Rain': 0.0, 'Cloud': 50.0, 
+                       'Pressure': 1013.0, 'Wind': 10.0, 'Gust': 15.0, 'Dir': 0}
+            df[col] = defaults.get(col, 0.0)
+    
     for city in df['city'].unique():
         city_mask = df['city'] == city
         city_data = df[city_mask].copy().sort_values('datetime').reset_index(drop=True)
@@ -264,13 +281,24 @@ def create_features_for_prediction(df, target_col='Temp'):
                 df.loc[city_mask, f'{var}_rolling_mean_{window}'] = city_data[var].shift(1).rolling(window=window, min_periods=1).mean().values
                 df.loc[city_mask, f'{var}_rolling_max_{window}'] = city_data[var].shift(1).rolling(window=window, min_periods=1).max().values
         
+        for lag in [1, 3, 6, 12, 24]:
+            if f'Gust_lag_{lag}' not in df.columns:
+                df.loc[city_mask, f'Gust_lag_{lag}'] = city_data['Gust'].shift(lag).values
+        
+        for window in [3, 6, 12, 24]:
+            if f'Gust_rolling_mean_{window}' not in df.columns:
+                df.loc[city_mask, f'Gust_rolling_mean_{window}'] = city_data['Gust'].shift(1).rolling(window=window, min_periods=1).mean().values
+            if f'Gust_rolling_max_{window}' not in df.columns:
+                df.loc[city_mask, f'Gust_rolling_max_{window}'] = city_data['Gust'].shift(1).rolling(window=window, min_periods=1).max().values
+        
         has_rain = (city_data['Rain'] > 0).astype(int)
         df.loc[city_mask, 'has_rain'] = has_rain.values
         df.loc[city_mask, 'has_rain_lag_1'] = has_rain.shift(1).fillna(0).astype(int).values
         df.loc[city_mask, 'has_rain_lag_3'] = has_rain.shift(3).fillna(0).astype(int).values
         df.loc[city_mask, 'has_rain_lag_6'] = has_rain.shift(6).fillna(0).astype(int).values
         
-        city_data['hour'] = city_data['datetime'].dt.hour
+        city_data['hour'] = city_data['datetime'].dt.hour if 'hour' not in city_data.columns else city_data['hour']
+        
         df.loc[city_mask, 'Temp_same_hour_1d_ago'] = city_data.groupby('hour')['Temp'].shift(8).values
         df.loc[city_mask, 'Temp_same_hour_7d_ago'] = city_data.groupby('hour')['Temp'].shift(7*8).values
         df.loc[city_mask, 'Temp_same_hour_avg_7d'] = city_data.groupby('hour')['Temp'].transform(lambda x: x.shift(1).rolling(window=7*8, min_periods=1).mean()).values
@@ -282,6 +310,11 @@ def create_features_for_prediction(df, target_col='Temp'):
         df.loc[city_mask, 'Cloud_same_hour_1d_ago'] = city_data.groupby('hour')['Cloud'].shift(8).values
         df.loc[city_mask, 'Cloud_same_hour_7d_ago'] = city_data.groupby('hour')['Cloud'].shift(7*8).values
         df.loc[city_mask, 'Cloud_same_hour_avg_7d'] = city_data.groupby('hour')['Cloud'].transform(lambda x: x.shift(1).rolling(window=7*8, min_periods=1).mean()).values
+    
+    if 'hour' not in df.columns:
+        df['hour'] = df['datetime'].dt.hour if 'datetime' in df.columns else 12
+    if 'month' not in df.columns:
+        df['month'] = df['datetime'].dt.month if 'datetime' in df.columns else 1
     
     df['hour_month_interaction'] = df['hour'] * df['month']
     df['pressure_wind_interaction'] = df['Pressure'] * df['Wind'] / 100
