@@ -16,62 +16,12 @@ if sys.platform == 'win32':
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def check_and_pull_from_github():
-    print("="*70)
-    print("KIEM TRA CAP NHAT TU GITHUB")
-    print("="*70)
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Đang kiểm tra cập nhật...")
-    print(f"  Thư mục làm việc: {SCRIPT_DIR}")
-    
+    """Sử dụng sync_all.py để pull từ GitHub"""
     try:
-        os.chdir(SCRIPT_DIR)
-        
-        result = subprocess.run(
-            ['git', 'fetch', 'origin', 'main'],
-            capture_output=True,
-            text=True,
-            cwd=SCRIPT_DIR
-        )
-        
-        if result.returncode != 0:
-            print(f"  ⚠️  Không thể fetch từ GitHub (có thể không phải git repo): {result.stderr[:100]}")
-            return False
-        
-        result = subprocess.run(
-            ['git', 'rev-list', '--count', 'HEAD..origin/main'],
-            capture_output=True,
-            text=True,
-            cwd=SCRIPT_DIR
-        )
-        
-        if result.returncode != 0:
-            print(f"  ⚠️  Không thể kiểm tra commits: {result.stderr[:100]}")
-            return False
-        
-        commits_behind = int(result.stdout.strip()) if result.stdout.strip() else 0
-        
-        if commits_behind > 0:
-            print(f"  📥 Tìm thấy {commits_behind} commit(s) mới. Đang pull cập nhật...")
-            
-            result = subprocess.run(
-                ['git', 'pull', 'origin', 'main'],
-                capture_output=True,
-                text=True,
-                cwd=SCRIPT_DIR
-            )
-            
-            if result.returncode == 0:
-                print(f"  ✅ Đã pull thành công {commits_behind} commit(s)")
-                print(f"  📄 Các file đã cập nhật: thoitiet360_data.csv, database, và các file khác")
-                return True
-            else:
-                print(f"  ⚠️  Lỗi khi pull: {result.stderr[:100]}")
-                return False
-        else:
-            print("  ✅ Đã cập nhật mới nhất, không có thay đổi")
-            return False
-            
+        import sync_all
+        return sync_all.check_and_pull()
     except Exception as e:
-        print(f"  ⚠️  Lỗi khi kiểm tra GitHub: {str(e)[:100]}")
+        print(f"  ⚠️  Không thể import sync_all: {str(e)[:100]}")
         return False
 
 CITY_MAPPING = {

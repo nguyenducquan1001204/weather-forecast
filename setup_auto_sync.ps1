@@ -24,8 +24,7 @@ Write-Host ""
 
 # Lấy thư mục chứa script
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$pythonScript = Join-Path $scriptDir "auto_sync.py"
-$wrapperBat = Join-Path $scriptDir "run_auto_sync.bat"
+$pythonScript = Join-Path $scriptDir "sync_all.py"
 
 # Tìm Python
 $pythonExe = $null
@@ -56,15 +55,17 @@ if (-not $pythonExe) {
 Write-Host "Đã tìm thấy Python: $pythonExe" -ForegroundColor Green
 Write-Host ""
 
-# Tạo file batch wrapper
-Write-Host "Đang tạo script wrapper..." -ForegroundColor Yellow
-$wrapperContent = @"
-@echo off
-cd /d "$scriptDir"
-"$pythonExe" "$pythonScript"
+# Tạo file VBScript wrapper để chạy ngầm (không hiện terminal)
+Write-Host "Đang tạo script wrapper (chạy ngầm)..." -ForegroundColor Yellow
+$wrapperVbs = Join-Path $scriptDir "run_sync_all.vbs"
+$wrapperVbsContent = @"
+Set WshShell = CreateObject("WScript.Shell")
+WshShell.CurrentDirectory = "$scriptDir"
+WshShell.Run ""$pythonExe" ""$pythonScript"", 0, False
+Set WshShell = Nothing
 "@
-$wrapperContent | Out-File -FilePath $wrapperBat -Encoding ASCII -Force
-Write-Host "  ✅ Đã tạo wrapper: $wrapperBat" -ForegroundColor Green
+$wrapperVbsContent | Out-File -FilePath $wrapperVbs -Encoding ASCII -Force
+Write-Host "  ✅ Đã tạo wrapper VBS (chạy ngầm): $wrapperVbs" -ForegroundColor Green
 Write-Host ""
 
 # Xóa các task hiện có
@@ -79,16 +80,16 @@ foreach ($taskName in $tasks) {
 }
 Write-Host ""
 
-# Tạo các hành động cho task
-$action1 = New-ScheduledTaskAction -Execute $wrapperBat
-$action2 = New-ScheduledTaskAction -Execute $wrapperBat
+# Tạo các hành động cho task (sử dụng VBScript để chạy ngầm)
+$action1 = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$wrapperVbs`""
+$action2 = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$wrapperVbs`""
 
 # Tạo các trigger cho task
 $trigger1 = New-ScheduledTaskTrigger -AtStartup
 $trigger2 = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 10) -RepetitionDuration (New-TimeSpan -Days 365)
 
-# Tạo cài đặt cho task
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+# Tạo cài đặt cho task (chạy ngầm, không hiện window)
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden
 
 # Tạo principal (chạy với user hiện tại)
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
@@ -127,9 +128,10 @@ Write-Host "  1. WeatherForecast_StartupSync - Đồng bộ khi Windows khởi �
 Write-Host "  2. WeatherForecast_AutoSync - Đồng bộ mỗi 10 phút"
 Write-Host ""
 Write-Host "Cách hoạt động:" -ForegroundColor Yellow
-Write-Host "  - Khi bạn bật máy tính: Các file được tự động đồng bộ"
-Write-Host "  - Khi máy tính đang chạy: Các file được đồng bộ mỗi 10 phút"
-Write-Host "  - Kết quả: Bạn luôn có các file mới nhất!"
+Write-Host "  - Khi bạn bật máy tính: Tự động pull tất cả file từ GitHub (weather.db, models, CSV) - CHẠY NGẦM"
+Write-Host "  - Khi máy tính đang chạy: Tự động pull mỗi 10 phút - CHẠY NGẦM (không hiện terminal)"
+Write-Host "  - Tự động import thoitiet360_data.csv vào database nếu có file mới"
+Write-Host "  - Kết quả: Bạn luôn có các file mới nhất và database được cập nhật!"
 Write-Host ""
 Write-Host "Để xem các task: Task Scheduler > Task Scheduler Library" -ForegroundColor Cyan
 Write-Host "Để kiểm tra: schtasks /Run /TN `"WeatherForecast_AutoSync`"" -ForegroundColor Cyan
