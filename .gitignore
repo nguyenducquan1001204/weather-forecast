@@ -32,6 +32,7 @@ Thumbs.db
 
 # Logs
 *.log
+sync_log.txt
 
 # Markdown files (báo cáo)
 *.md
