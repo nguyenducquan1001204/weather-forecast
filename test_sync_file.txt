@@ -1,0 +1,4 @@
+File test để kiểm tra sync từ GitHub
+Thời gian tạo: 2026-01-12
+File này sẽ được dùng để test pull từ GitHub
+
