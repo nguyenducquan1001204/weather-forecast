@@ -122,7 +122,11 @@ def check_and_pull():
                 # Ghi log vào file
                 log_file = os.path.join(SCRIPT_DIR, 'sync_log.txt')
                 try:
-                    with open(log_file, 'a', encoding='utf-8') as f:
+                    # Đảm bảo file có BOM nếu là file mới
+                    file_exists = os.path.exists(log_file)
+                    with open(log_file, 'a', encoding='utf-8-sig') as f:
+                        if not file_exists:
+                            f.write('\ufeff')  # UTF-8 BOM
                         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         f.write(f"\n[{timestamp}] Pull thành công - {commits_behind} commit(s)\n")
                         f.write(f"Files updated: {', '.join(updated_files) if updated_files else 'None'}\n")
@@ -161,11 +165,15 @@ def check_and_pull():
             # Ghi log ngay cả khi không có thay đổi
             log_file = os.path.join(SCRIPT_DIR, 'sync_log.txt')
             try:
-                with open(log_file, 'a', encoding='utf-8') as f:
+                # Đảm bảo file có BOM nếu là file mới
+                file_exists = os.path.exists(log_file)
+                with open(log_file, 'a', encoding='utf-8-sig') as f:
+                    if not file_exists:
+                        f.write('\ufeff')  # UTF-8 BOM
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     f.write(f"[{timestamp}] Đã kiểm tra - Không có cập nhật mới\n")
-            except:
-                pass
+            except Exception as e:
+                print(f"  ⚠️  Không thể ghi log: {str(e)[:50]}")
             
             print()
             print("="*70)
