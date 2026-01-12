@@ -1,0 +1,4 @@
+File test để kiểm tra sync
+Tạo lúc: 2026-01-12
+Mục đích: Test việc pull từ GitHub
+
