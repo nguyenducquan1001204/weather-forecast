@@ -1,0 +1,72 @@
+name: Auto Generate Forecast
+
+on:
+  schedule:
+    # Chạy mỗi ngày vào 10h sáng (UTC+7 = 3:00 UTC)
+    # Vì GitHub Actions dùng UTC, nên 10h sáng VN = 3:00 UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Cho phép chạy thủ công
+
+jobs:
+  generate-forecast:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Check if database and models exist
+      run: |
+        if [ -f weather.db ]; then
+          echo "✅ Database exists"
+          python -c "from database import get_db_connection; conn = get_db_connection(); cursor = conn.cursor(); cursor.execute('SELECT COUNT(*) FROM weather_data'); print(f'Weather records: {cursor.fetchone()[0]}'); conn.close()"
+        else
+          echo "❌ Database not found!"
+          exit 1
+        fi
+        if [ -f weather_models_final.pkl ]; then
+          echo "✅ Models file exists"
+        else
+          echo "❌ Models file not found!"
+          exit 1
+        fi
+      continue-on-error: false
+    
+    - name: Initialize database (if needed)
+      run: |
+        python -c "from database import init_database; init_database()"
+      continue-on-error: true
+    
+    - name: Generate forecast
+      run: |
+        python auto_generate_forecast.py
+      env:
+        TZ: Asia/Ho_Chi_Minh
+    
+    - name: Commit and push updated database
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add weather.db || true
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Auto update: Generate forecast $(date +'%Y-%m-%d %H:%M:%S')" || exit 0
+          git push origin HEAD:main || git push origin HEAD:master || exit 0
+        fi
+      continue-on-error: true
